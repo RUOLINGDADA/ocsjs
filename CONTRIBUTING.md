@@ -20,35 +20,38 @@
 
 - **协议破解、直接发包等 Hack 行为**：本项目仅通过模拟人工操作完成自动化流程，不接受逆向协议、伪造请求、直接调用内部接口发包等实现方式。
 - **小众、未经审查的新平台脚本**：为避免后期维护困难，新平台接入前请先在 Issue 中讨论其用户规模与可维护性，经确认后再提交。
-- **AI 题库适配**：存在利益冲突以及维护压力，不接受 AI 题库（大模型答题）相关的适配 PR，如有需要可自行 Fork 实现使用。
 
 ### 流程
 
-1. Fork 本仓库，并基于 `dev` 分支创建特性分支：
+1. Fork 本仓库，并基于 `5.0` 分支创建特性分支：
    - 新功能：`feat/功能名`
    - 修复：`fix/问题描述`
    - 优化：`perf/优化点`
    - 重构：`refactor/重构点`
-2. 完成开发并自测后，向 `dev` 分支发起 PR，描述改动内容与动机。
+2. 完成开发并自测后，向 `5.0` 分支发起 PR，描述改动内容与动机。
 3. 等待 Review，根据反馈修改后即可合并。
 
 ### 开发环境
 
 ```bash
-# 要求：Node.js >= 16，pnpm
+# 要求：Node.js >= 20，pnpm 9
 pnpm install
 
 # 开发模式（监听源码与样式，自动编译）
 npm run dev
 
-# 构建
+# 单元测试（答案匹配、AI 题库、答题引擎）
+npm test
+
+# 构建，产物在 dist/
 npm run build
 ```
 
 ### 代码规范
 
 - **提交前自检**：确保 `npx tsc --noEmit`（packages/scripts 目录下）无类型错误，代码通过 ESLint / Prettier 检查。
-- **样式修改**：样式源文件为 `packages/scripts/assets/less/*.less`，修改后执行 `npm run build:style` 编译生成 `style.css`，**不要直接手改 css 产物**。
+- **测试**：改动答题流程、重试或 AI 请求逻辑时，先在 `tests/engine.test.ts` 或 `tests/ai-answerer.test.ts` 里补一个能复现问题的用例，再改代码。
+- **样式修改**：样式源文件在 `packages/scripts/assets/less/`：`tokens.less` 是颜色、字号等设计变量，`base.less` 是基础组件，`custom.less` 是各功能模块，`theme.less` 是最后覆盖的视觉层。修改后执行 `npm run build:style` 编译生成 `style.css`，**不要直接手改 css 产物**。界面里不要使用 emoji，图标统一放在 `packages/scripts/src/utils/icons.ts`。
 - **Commit 规范**：使用 Conventional Commits，主题单行概括，正文多行列出要点：
 
   ```

@@ -9,7 +9,10 @@ import {
 	splitAnswer,
 	domSearch,
 	domSearchAll,
-	SearchInformation
+	SearchInformation,
+	WorkResult,
+	WorkerEngineConfig,
+	markDocumentBusy
 } from '@ocsjs/core';
 import { crackFont, collectChars, decryptElements, extractFontFromStyle } from '../utils/font-decrypt';
 import { $modal, h, $store, MessageElement, Project, Script, $el, $gm, $$el, $ui, cors, $message } from 'easy-us';
@@ -25,6 +28,7 @@ import {
 	simplifyWorkResult,
 	updateDynamicResult
 } from '../utils/work';
+import { hasUsableAnswerer } from '../utils/ai/answerer';
 import { $console, BackgroundProject } from './background';
 import { CommonWorkOptions, playMedia } from '../utils';
 import { createSteps } from '../utils/ui';
@@ -38,9 +42,9 @@ import { waitForElement, waitForMedia } from '../utils/study';
 const CX_SECRET_REF_TABLE_URL = 'https://cdn.ocsjs.com/resources/font/font_ref_cx.bin';
 
 const HIGHT_PLAYBACK_RATE_WARNS = [
-	'⚠️高倍速、夜间、白天大量运行 等情况\n可能导致学习记录清空/回退',
-	'⚠️超星后台可以看到学习时长，请谨慎设置',
-	'⚠️如已清空/回退，请降低倍速至1-2倍'
+	'高倍速、夜间、白天大量运行 等情况\n可能导致学习记录清空/回退',
+	'超星后台可以看到学习时长，请谨慎设置',
+	'如已清空/回退，请降低倍速至1-2倍'
 ];
 
 // @ts-ignore
@@ -161,7 +165,7 @@ export const CXProject = Project.create({
 			}
 		}),
 		guide: new Script({
-			name: '💡 使用提示',
+			name: '使用提示',
 			matches: [
 				['首页', 'https://www.chaoxing.com'],
 				['旧版个人首页', 'chaoxing.com/space/index'],
@@ -196,11 +200,11 @@ export const CXProject = Project.create({
 					};
 					panel.body.replaceChildren(
 						h('hr'),
-						$ui.button('👉 前往学习设置', {}, (btn) => {
+						$ui.button('前往学习设置', {}, (btn) => {
 							btn.style.marginRight = '12px';
 							btn.onclick = () => gotoPanel('study');
 						}),
-						$ui.button('👉 前往作业设置', {}, (btn) => {
+						$ui.button('前往作业设置', {}, (btn) => {
 							btn.onclick = () => gotoPanel('work');
 						})
 					);
@@ -208,7 +212,7 @@ export const CXProject = Project.create({
 			}
 		}),
 		study: new Script({
-			name: '🖥️ 课程学习',
+			name: '课程学习',
 			namespace: 'cx.new.study',
 			matches: [
 				['任务点页面', '/knowledge/cards'],
@@ -221,7 +225,7 @@ export const CXProject = Project.create({
 						['任务点不是顺序执行，如果某一个任务没有动', '请查看是否有其他任务正在学习，耐心等待即可。'],
 						'闯关模式请注意题库如果没完成，需要自己完成才能解锁章节。',
 						'请勿凌晨刷课，部分学校课程可能会清空进度。',
-						['⚠️目前超星倍速风控严重，如果高倍速', '被平台清空进度，请调到1-2倍速学习！']
+						['目前超星倍速风控严重，如果高倍速', '被平台清空进度，请调到1-2倍速学习！']
 					]).outerHTML
 				},
 				playbackRate: { ...playbackRate, attrs: { title: HIGHT_PLAYBACK_RATE_WARNS.join('\n') } },
@@ -352,7 +356,7 @@ export const CXProject = Project.create({
 				}
 			},
 			onrender({ panel }) {
-				if (!CommonProject.scripts.settings.cfg.answererWrappers?.length) {
+				if (!hasUsableAnswerer(CommonProject.scripts.settings.cfg.answererWrappers).ok) {
 					answerWrapperEmptyWarning(10);
 				}
 
@@ -362,7 +366,7 @@ export const CXProject = Project.create({
 					this.onConfigChange('playbackRate', (playbackRate) => {
 						if (playbackRate > 2) {
 							$modal.alert({
-								title: '⚠️高倍速警告 （倍速 >= 2）',
+								title: '高倍速警告 （倍速 >= 2）',
 								content: $ui.notes(HIGHT_PLAYBACK_RATE_WARNS),
 								maskCloseable: false,
 								confirmButtonText: '我已知晓风险'
@@ -446,7 +450,7 @@ export const CXProject = Project.create({
 			}
 		}),
 		work: new Script({
-			name: '✍️ 作业考试脚本',
+			name: '作业考试脚本',
 			matches: [
 				['作业页面', '/mooc2/work/dowork'],
 				['考试整卷预览页面', '/mooc2/exam/preview'],
@@ -467,7 +471,7 @@ export const CXProject = Project.create({
 			}
 		}),
 		mobilelearn: new Script({
-			name: '✍️ 任务列表',
+			name: '任务列表',
 			matches: [
 				['任务列表首页', '/page/active/stuActiveList'],
 				// 随堂练习域名一般为 mobilelearn.chaoxing.com
@@ -492,7 +496,7 @@ export const CXProject = Project.create({
 			}
 		}),
 		autoRead: new Script({
-			name: '🖥️ 自动阅读',
+			name: '自动阅读',
 			matches: [
 				['阅读页面', '/ztnodedetailcontroller/visitnodedetail'],
 				['课程目录', /chaoxing.com\/course\/\d+\.html/],
@@ -779,7 +783,9 @@ export const CXProject = Project.create({
 			matches: [
 				['题目页面', 'work/doHomeWorkNew'],
 				['考试整卷预览', '/mooc2/exam/preview'],
-				['作业', '/mooc2/work/dowork']
+				['作业', '/mooc2/work/dowork'],
+				['新版考试页面', 'exam-ans/exam/test/reVersionTestStartNew'],
+				['新版考试页面2', 'mooc-ans/exam/test/reVersionTestStartNew']
 			],
 			async oncomplete() {
 				await mappingRecognize();
@@ -787,14 +793,14 @@ export const CXProject = Project.create({
 		}),
 		// 积分课提示
 		jfkGuide: new Script({
-			name: '💡 积分课使用提示',
+			name: '积分课使用提示',
 			matches: [['积分课页面', '/plaza']],
 			namespace: 'cx.jfk.guide',
 			configs: {
 				notes: {
 					defaultValue:
 						createSteps(['进入课程', '开启复习模式，并关闭自动下一章', '课程完成后手动切换']).outerHTML +
-						$ui.notes(['⚠️ 如果由脚本进行自动跳转会出现乱跳转的可能，请手动切换课程。']).outerHTML
+						$ui.notes(['如果由脚本进行自动跳转会出现乱跳转的可能，请手动切换课程。']).outerHTML
 				}
 			},
 			oncomplete(...args) {
@@ -895,6 +901,7 @@ function workOrExam(
 			/** 完形填空 */
 			filling: '.filling_answer'
 		},
+		readiness: { check: cxFontReady },
 		thread: thread ?? 1,
 		answerSeparators: answerSeparators.split(',').map((s) => s.trim()),
 		/** 默认搜题方法构造器 */
@@ -1030,29 +1037,64 @@ function workOrExam(
 	if (preview_mode) {
 		worker
 			.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug })
-			.then(() => {
-				$message.info({ content: '作业/考试完成，请自行检查后保存或提交。', duration: 0 });
+			.then((results) => {
+				const unfinished = results.filter((r) => r.result?.finish !== true).length;
+				$message[unfinished ? 'warn' : 'success']({
+					content: unfinished
+						? `答题结束，有 ${unfinished} 题重试后仍没答上（答题卡中红色的格子），请手动作答后再保存或提交。`
+						: '全部题目已作答，请检查后自行保存或提交。',
+					duration: 0
+				});
 				worker.emit('done');
 			})
 			.catch((err) => {
 				console.error(err);
-				$message.error('答题程序发生错误 : ' + err.message);
+				if (!WorkerEngineConfig.blockedReason) $message.error('答题出错：' + err.message);
 			});
 	} else {
-		const getNextBtn = () => document.querySelector('[onclick="getTheNextQuestion(1)"]') as HTMLElement;
-		let next = getNextBtn();
+		const getNextBtn = () => document.querySelector('[onclick="getTheNextQuestion(1)"]') as HTMLElement | null;
+		/** 当前题目的指纹：切题后题目元素会被替换或题干会变化 */
+		const questionFingerprint = () => {
+			const el = document.querySelector<HTMLElement>('.questionLi');
+			return { el, text: el?.textContent?.trim().slice(0, 200) || '' };
+		};
+		/** 点击下一题后等待新题目真正渲染出来，而不是固定等 1 秒 */
+		const waitForNextQuestion = async (prev: { el: HTMLElement | null; text: string }) => {
+			const started = Date.now();
+			while (Date.now() - started < 15000 && worker.isClose === false) {
+				const cur = questionFingerprint();
+				if (cur.el && (cur.el !== prev.el || cur.text !== prev.text)) return true;
+				await $.sleep(200);
+			}
+			return false;
+		};
 
 		(async () => {
-			while (next && worker.isClose === false) {
-				await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
-				$message.info({ content: '已完成，即将下一题', duration: 0 });
-				await $.sleep(3000);
-				next = getNextBtn();
-				next?.click();
-				await $.sleep(1000);
+			let next = getNextBtn();
+			try {
+				while (worker.isClose === false) {
+					await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+					next = getNextBtn();
+					if (!next || worker.isClose) break;
+					$message.info({ content: '本题已完成，切换到下一题', duration: 3 });
+					await $.sleep(1500);
+					const prev = questionFingerprint();
+					next.click();
+					if (!(await waitForNextQuestion(prev))) {
+						$message.warn({ content: '下一题没有加载出来，答题已停止，请手动切换后重新开始。', duration: 0 });
+						break;
+					}
+					// 新题目同样是加密字体，解密后再读题
+					await mappingRecognize();
+				}
+			} catch (err) {
+				console.error(err);
+				if (!WorkerEngineConfig.blockedReason) $message.error('答题出错：' + ((err as any)?.message || err));
 			}
 
-			$message.success({ content: '作业/考试完成，请自行检查后保存或提交。', duration: 0 });
+			if (!WorkerEngineConfig.blockedReason && worker.isClose === false) {
+				$message.success({ content: '作业/考试已答完，请检查后自行保存或提交。', duration: 0 });
+			}
 			worker.emit('done');
 			// 搜索完成后才会同步答案与题目的显示，防止题目错乱
 			CommonProject.scripts.workResults.cfg.questionPositionSyncHandlerType = 'cx';
@@ -1164,7 +1206,7 @@ function mobilelearn(opts: CommonWorkOptions) {
 		})
 		.catch((err) => {
 			console.error(err);
-			$message.error('答题程序发生错误 : ' + err.message);
+			if (!WorkerEngineConfig.blockedReason) $message.error('答题出错：' + err.message);
 		});
 
 	return worker;
@@ -1184,20 +1226,47 @@ function mobilelearn(opts: CommonWorkOptions) {
  * @see 算法详解见 utils/font-decrypt/bitmap.ts 文件头注释
  * @see 参考 https://bbs.tampermonkey.net.cn/thread-2303-1-1.html
  */
-async function mappingRecognize(doc: Document = document) {
-	// 从 @font-face 的 data URI 中提取加密字体
-	const fontBuffer = extractFontFromStyle(doc, 'font-cxsecret');
-	if (!fontBuffer) {
-		$console.log('未检测到加密文字。');
-		return;
-	}
-	const fonts = CXAnalyses.getSecretFont(doc);
-	if (fonts.length === 0) {
-		return;
-	}
+/** 解密状态写在文档根元素上，同一文档内的所有脚本实例（含 iframe 内外）都能读到 */
+const CX_FONT_STATE_ATTR = 'data-ocs-font-decrypt';
 
-	const t = Date.now();
+/**
+ * 读题前的就绪条件：页面没有加密文字，或者解密已经结束（成功或失败都算结束）。
+ *
+ * 章节测试由顶层脚本实例驱动答题，解密却在 iframe 自己的脚本实例里进行，
+ * 顶层可能在 iframe 解密开始之前就发现了题目，所以不能只看「是否在解密中」。
+ */
+export function cxFontReady(doc: Document): boolean {
+	if (doc.documentElement?.hasAttribute(CX_FONT_STATE_ATTR)) {
+		return doc.documentElement.getAttribute(CX_FONT_STATE_ATTR) !== 'pending';
+	}
+	if (doc.querySelector('.font-cxsecret') === null) return true;
+	// 有加密文字但解密还没开始：最多等 CX_FONT_START_WAIT_MS，等不到说明这个页面不会解密，直接放行
+	const firstSeen = cxFontWaitStart.get(doc) ?? Date.now();
+	cxFontWaitStart.set(doc, firstSeen);
+	return Date.now() - firstSeen > CX_FONT_START_WAIT_MS;
+}
+
+/** 等待解密脚本启动的上限 */
+const CX_FONT_START_WAIT_MS = 8000;
+const cxFontWaitStart = new WeakMap<Document, number>();
+
+async function mappingRecognize(doc: Document = document) {
+	const setState = (state: 'pending' | 'done' | 'failed' | 'none') =>
+		doc.documentElement?.setAttribute(CX_FONT_STATE_ATTR, state);
+	let release: (() => void) | undefined;
 	try {
+		// 从 @font-face 的 data URI 中提取加密字体
+		const fontBuffer = extractFontFromStyle(doc, 'font-cxsecret');
+		const fonts = fontBuffer ? CXAnalyses.getSecretFont(doc) : [];
+		if (!fontBuffer || fonts.length === 0) {
+			$console.log('未检测到加密文字。');
+			setState('none');
+			return;
+		}
+
+		setState('pending');
+		release = markDocumentBusy(doc, 'font-decrypt');
+		const t = Date.now();
 		// 只破解页面实际出现的字符（通常几十个），避免全字表扫描
 		const { map, details } = await crackFont(fontBuffer, collectChars(fonts), {
 			refTableUrl: CX_SECRET_REF_TABLE_URL,
@@ -1211,10 +1280,15 @@ async function mappingRecognize(doc: Document = document) {
 		}
 		decryptElements(fonts, map);
 		fonts.forEach((el) => el.classList.remove('font-cxsecret')); // 移除字体加密
+		setState('done');
 		$console.info('文字解密完成，耗时 ' + ((Date.now() - t) / 1000).toFixed(1) + ' 秒');
 	} catch (err) {
+		// 任何异常都要结束 pending 状态，否则读题会一直等到超时
+		setState('failed');
 		$console.error('加密文字识别失败：', String(err));
 		$message.error('加密文字识别失败：' + String(err));
+	} finally {
+		release?.();
 	}
 }
 
@@ -1710,7 +1784,7 @@ function searchJob(opts: typeof CXProject.scripts.study.cfg, searchedJobs: Job[]
 								(work_type === 'not-job' && CommonProject.scripts.settings.cfg['work-when-no-job'])
 							) {
 								const workOptions = CommonProject.scripts.settings.methods.getWorkOptions();
-								if (workOptions.answererWrappers === undefined || workOptions.answererWrappers.length === 0) {
+								if (!hasUsableAnswerer(workOptions.answererWrappers).ok) {
 									answerWrapperEmptyWarning(0);
 								} else {
 									func = () => {
@@ -1956,7 +2030,7 @@ const JobRunner = {
 			answerSeparators
 		}: CommonWorkOptions
 	) {
-		if (answererWrappers === undefined || answererWrappers.length === 0) {
+		if (!hasUsableAnswerer(answererWrappers).ok) {
 			return answerWrapperEmptyWarning(0);
 		}
 
@@ -2026,6 +2100,8 @@ const JobRunner = {
 				type: 'input[id^="answertype"]',
 				lineSelectBox: '.thirdUlList .dept_select'
 			},
+			// 等 iframe 内的加密文字解密完再读题（旧实现第一题经常读到密文）
+			readiness: { check: cxFontReady },
 			thread: thread ?? 1,
 			answerSeparators: answerSeparators.split(',').map((s) => s.trim()),
 			/** 默认搜题方法构造器 */
@@ -2124,56 +2200,12 @@ const JobRunner = {
 				);
 			},
 
-			/** 完成答题后 */
-			async onResultsUpdate(curr, index, res) {
+			/** 每次状态推进（搜题中 → 重试中 → 已答/失败）都刷新结果面板 */
+			async onResultsUpdate(curr, index) {
 				await CommonProject.scripts.workResults.methods.update(
 					index,
 					simplifyWorkResult(curr, chapterTestTaskQuestionTitleText, index)
 				);
-
-				// 没有完成时随机作答
-				if (curr.result?.finish === false && curr.resolved === true) {
-					const options = curr.ctx?.elements?.options || [];
-
-					const typeInput = curr.ctx?.elements?.type[0] as HTMLInputElement | undefined;
-					const type = typeInput ? getQuestionType(parseInt(typeInput.value)) : undefined;
-
-					const commonSetting = CommonProject.scripts.settings.cfg;
-
-					if (
-						commonSetting['randomWork-choice'] &&
-						(type === 'judgement' || type === 'single' || type === 'multiple')
-					) {
-						$console.log('正在随机作答');
-
-						const option = options[Math.floor(Math.random() * options.length)];
-						// @ts-ignore 随机选择选项
-						option?.parentElement?.querySelector('a,label')?.click();
-					} else if (commonSetting['randomWork-complete'] && type === 'completion') {
-						$console.log('正在随机作答');
-
-						// 随机填写答案
-						for (const option of options) {
-							const textarea = option?.parentElement?.querySelector('textarea');
-							const completeTexts = commonSetting['randomWork-completeTexts-textarea'].split('\n').filter(Boolean);
-							const text = completeTexts[Math.floor(Math.random() * completeTexts.length)];
-							const textareaFrame = option?.parentElement?.querySelector('iframe');
-
-							if (text) {
-								if (textarea) {
-									textarea.value = text;
-								}
-								if (textareaFrame?.contentDocument) {
-									textareaFrame.contentDocument.body.innerHTML = text;
-								}
-							} else {
-								$console.error('请设置随机填空的文案');
-							}
-
-							await $.sleep(500);
-						}
-					}
-				}
 			},
 			async onElementSearched(elements) {
 				const typeInput = elements.type[0] as HTMLInputElement;
@@ -2211,6 +2243,15 @@ const JobRunner = {
 		const results = await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
 		// 章节测试未使用 commonWork，这里手动触发状态更新
 		CommonEvents.emitWorkerStateChange('done');
+
+		if (worker.isClose) {
+			$console.warn('章节测试答题已停止，不保存也不提交。');
+			return;
+		}
+
+		// 重试和补答都结束后，仍没答上的题才按设置随机作答
+		// （旧实现在第一次失败时就随机作答，多选题后续重试答对也会残留随机选项）
+		await randomFillUnfinished(results);
 
 		const msg = `答题完成，将等待 ${stopSecondWhenFinish} 秒后进行保存或提交。`;
 		$console.info(msg);
@@ -2326,6 +2367,43 @@ function getQuestionType(
 }
 
 /** 阅读理解和完形填空的共同处理器 */
+/**
+ * 章节测试：对重试后仍未完成的题目按设置随机作答（不计入完成率）
+ */
+async function randomFillUnfinished(results: WorkResult<any>[]) {
+	const commonSetting = CommonProject.scripts.settings.cfg;
+	if (!commonSetting['randomWork-choice'] && !commonSetting['randomWork-complete']) return;
+
+	for (const result of results) {
+		if (result.result?.finish === true) continue;
+		const options = (result.ctx?.elements?.options || []) as HTMLElement[];
+		const typeInput = result.ctx?.elements?.type?.[0] as HTMLInputElement | undefined;
+		const type = typeInput ? getQuestionType(parseInt(typeInput.value)) : undefined;
+
+		if (commonSetting['randomWork-choice'] && (type === 'judgement' || type === 'single' || type === 'multiple')) {
+			$console.log('正在随机作答');
+			const option = options[Math.floor(Math.random() * options.length)];
+			option?.parentElement?.querySelector<HTMLElement>('a,label')?.click();
+			await $.sleep(300);
+		} else if (commonSetting['randomWork-complete'] && type === 'completion') {
+			$console.log('正在随机作答');
+			const completeTexts = commonSetting['randomWork-completeTexts-textarea'].split('\n').filter(Boolean);
+			for (const option of options) {
+				const text = completeTexts[Math.floor(Math.random() * completeTexts.length)];
+				if (!text) {
+					$console.error('请设置随机填空的文案');
+					break;
+				}
+				const textarea = option?.parentElement?.querySelector('textarea');
+				const textareaFrame = option?.parentElement?.querySelector('iframe');
+				if (textarea) textarea.value = text;
+				if (textareaFrame?.contentDocument) textareaFrame.contentDocument.body.innerHTML = text;
+				await $.sleep(500);
+			}
+		}
+	}
+}
+
 async function readerAndFillHandle(searchInfos: SearchInformation[], list: HTMLElement[]) {
 	for (const answers of searchInfos.map((info) => info.results.map((res) => res.answer))) {
 		let ans = answers;

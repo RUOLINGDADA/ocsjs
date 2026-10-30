@@ -4,7 +4,15 @@ import { $ } from '../../utils';
 
 export const AnswerWrapperHandlerConfig = {
 	// 超时时间，单位毫秒
-	timeout_seconds: 60
+	timeout_seconds: 60,
+	/**
+	 * 答题线程等待单题结果的总宽限（秒）。
+	 *
+	 * 不设置时沿用原有行为：timeout_seconds + 10。
+	 * 接入 AI 答题后，AI 单题耗时可能长于题库请求，需要把它调大，
+	 * 否则 worker 会在 AI 还没返回时就判定「答题超时！」（见 worker.ts waitForRequested）。
+	 */
+	resolve_timeout_seconds: undefined as number | undefined
 };
 
 /**

@@ -23,6 +23,7 @@ export { ICourseProject } from './projects/icourse';
 export { YKTProject } from './projects/yuketang';
 export { RenderScript } from './render';
 export { logoSvg } from './utils/ui';
+export { detectForeignInstanceBeforeStart, startInstanceGuard } from './utils/instance-guard';
 export {
 	setAnswererConfigProvider,
 	getAnswererConfigProvider,
@@ -30,6 +31,11 @@ export {
 	waitForAnswererConfig
 } from './utils/answerer-connect';
 export type { AnswererConfigProvider } from './utils/answerer-connect';
+/** AI 题库（AI 答题）对外接口，供控制台调试与二次开发使用 */
+export { getAiSettings, normalizeProfile, normalizeProfiles, saveAiProfiles } from './utils/ai/config';
+export type { AiAnswerMode, AiSettings } from './utils/ai/config';
+export { askAiSearch, hasUsableAnswerer, runAnswererPipeline, resetAiAnswererRuntime } from './utils/ai/answerer';
+export { createAiAnswererPanel, openAiProfileEditor } from './utils/ai/ui';
 
 export function definedProjects(): Project[] {
 	return [

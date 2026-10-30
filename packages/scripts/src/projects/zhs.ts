@@ -1,5 +1,5 @@
 import { $ui, Project, Script, $el, h, $$el, $message, $, $modal, MessageElement, $store, $gm } from 'easy-us';
-import { RemotePage, OCSWorker } from '@ocsjs/core';
+import { RemotePage, OCSWorker, WorkerEngineConfig } from '@ocsjs/core';
 import { CommonProject } from './common';
 import { definition, volume, restudy } from '../utils/configs';
 import {
@@ -55,10 +55,10 @@ const remote_not_required_pages = [
 ];
 
 const gxk_read_notes = [
-	'⚠️ 如果未开始答题，请尝试刷新页面。',
-	'⚠️ 禁止同时打开多个作业/考试页面。',
-	['⚠️ 答题中请勿进行任何操作，如需暂停答题', '请等待全部题目搜索完成并执行自动保存功能后才能操作。'],
-	['⚠️ 暂停后手动操作请确保每个题目都点击下一题', '进行答案保存（不然不会保存，提交没分）']
+	'如果未开始答题，请尝试刷新页面。',
+	'禁止同时打开多个作业/考试页面。',
+	['答题中请勿进行任何操作，如需暂停答题', '请等待全部题目搜索完成并执行自动保存功能后才能操作。'],
+	['暂停后手动操作请确保每个题目都点击下一题', '进行答案保存（不然不会保存，提交没分）']
 ];
 
 /**
@@ -642,7 +642,7 @@ export const ZHSProject = Project.create({
 	],
 	scripts: {
 		guide: new Script({
-			name: '💡 使用提示',
+			name: '使用提示',
 			matches: [
 				['学习首页', 'https://onlineweb.zhihuishu.com/onlinestuh5'],
 				['首页', 'https://www.zhihuishu.com/']
@@ -674,11 +674,11 @@ export const ZHSProject = Project.create({
 					};
 					panel.body.replaceChildren(
 						h('hr'),
-						$ui.button('👉 前往学习设置', {}, (btn) => {
+						$ui.button('前往学习设置', {}, (btn) => {
 							btn.style.marginRight = '12px';
 							btn.onclick = () => gotoPanel('study-center');
 						}),
-						$ui.button('👉 前往作业设置', {}, (btn) => {
+						$ui.button('前往作业设置', {}, (btn) => {
 							btn.onclick = () => gotoPanel('work-center');
 						})
 					);
@@ -692,7 +692,7 @@ export const ZHSProject = Project.create({
 		 * 实际的学习逻辑仍由下方被 hideInPanel 的各个学习脚本处理。
 		 */
 		'study-center': new Script({
-			name: '🖥️ 自动学习',
+			name: '自动学习',
 			matches: [
 				['共享课学习页面', 'studyvideoh5.zhihuishu.com'],
 				['新共享课学习页面', 'studyplush5.zhihuishu.com'],
@@ -725,7 +725,7 @@ export const ZHSProject = Project.create({
 		 * 实际的答题逻辑仍由下方被 hideInPanel 的各个作业考试脚本处理。
 		 */
 		'work-center': new Script({
-			name: '📝 作业考试',
+			name: '作业考试',
 			matches: [
 				['共享课作业页面', 'zhihuishu.com/stuExamWeb.html#/webExamList/dohomework'],
 				['共享课考试页面', 'zhihuishu.com/stuExamWeb.html#/webExamList/doexamination'],
@@ -758,7 +758,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		'gxk-study': new Script({
-			name: '🖥️ 共享课-学习脚本',
+			name: '共享课-学习脚本',
 			hideInPanel: true,
 			matches: [
 				['共享课学习页面', 'studyvideoh5.zhihuishu.com'],
@@ -835,7 +835,7 @@ export const ZHSProject = Project.create({
 			onrender({ panel }) {
 				panel.body.replaceChildren(
 					h('hr'),
-					$ui.button('⏰检测是否需要规律学习', {}, (btn) => {
+					$ui.button('检测是否需要规律学习', {}, (btn) => {
 						btn.style.marginRight = '12px';
 						btn.onclick = () => {
 							const href = document.querySelector('[href*=stuLearnReportNew]')?.getAttribute('href') || '';
@@ -852,7 +852,7 @@ export const ZHSProject = Project.create({
 							}
 						};
 					}),
-					$ui.button('📘查看学习记录', {}, (btn) => {
+					$ui.button('查看学习记录', {}, (btn) => {
 						btn.onclick = () => {
 							$modal.alert({
 								title: '学习记录',
@@ -1054,7 +1054,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		'gxk-work': new Script({
-			name: '✍️ 共享课-作业考试脚本',
+			name: '共享课-作业考试脚本',
 			hideInPanel: true,
 			matches: [
 				['共享课作业页面', 'zhihuishu.com/stuExamWeb.html#/webExamList/dohomework'],
@@ -1141,7 +1141,7 @@ export const ZHSProject = Project.create({
 								});
 							}, 1000);
 						} else {
-							$message.info({ content: '📢 请手动进入作业/考试，如果未开始答题，请尝试刷新页面。', duration: 0 });
+							$message.info({ content: '请手动进入作业/考试，如果未开始答题，请尝试刷新页面。', duration: 0 });
 
 							BackgroundProject.scripts.render.methods.pin(this);
 						}
@@ -1159,7 +1159,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		'smart-study': new Script({
-			name: '🖥️ 新形态课程-学习脚本',
+			name: '新形态课程-学习脚本',
 			hideInPanel: true,
 			matches: [
 				['新形态课程学习页面', 'smartcoursestudent.zhihuishu.com/learnPage'],
@@ -1418,7 +1418,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		'smart-work': new Script({
-			name: '✍️ 新形态课程-作业/考试/掌握度脚本',
+			name: '新形态课程-作业/考试/掌握度脚本',
 			hideInPanel: true,
 			matches: [
 				['新形态课程作业页面', 'smartcourseexam.zhihuishu.com/ReviewExam'],
@@ -1482,7 +1482,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		'smart-exam': new Script({
-			name: '✍️ 新形态课程-考试脚本',
+			name: '新形态课程-考试脚本',
 			hideInPanel: true,
 			matches: [['新形态课程-考试界面', 'examloop.zhihuishu.com/exam']],
 			namespace: zhsWorkNamespace,
@@ -1516,7 +1516,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		'xnk-study': new Script({
-			name: '🖥️ 校内课（翻转课）-学习脚本',
+			name: '校内课（翻转课）-学习脚本',
 			hideInPanel: true,
 			matches: [['校内课学习页面', 'zhihuishu.com/aidedteaching/sourceLearning']],
 			namespace: zhsStudyNamespace,
@@ -1608,7 +1608,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		'xnk-work': new Script({
-			name: '✍️ 校内课-作业考试脚本',
+			name: '校内课-作业考试脚本',
 			hideInPanel: true,
 			matches: [
 				['校内课作业页面', 'zhihuishu.com/atHomeworkExam/stu/homeworkQ/exerciseList'],
@@ -1631,7 +1631,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		'wisdom-study': new Script({
-			name: '🖥️ 新智慧学习-学习脚本',
+			name: '新智慧学习-学习脚本',
 			hideInPanel: true,
 			matches: [['2025-12月新智慧学习页面', 'wisdom-mooc.zhihuishu.com/study/index']],
 			namespace: zhsStudyNamespace,
@@ -1923,7 +1923,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		hike: new Script({
-			name: '🖥️ 教学空间-AI智慧课程-学习脚本',
+			name: '教学空间-AI智慧课程-学习脚本',
 			hideInPanel: true,
 			matches: [
 				['学习首页', 'hike-teaching-center.polymas.com/stu-hike/agent-course-hike/ai-course-center'],
@@ -2127,7 +2127,7 @@ export const ZHSProject = Project.create({
 			}
 		}),
 		hike_v2: new Script({
-			name: '🖥️ 教学空间-AI智慧课程-学习脚本',
+			name: '教学空间-AI智慧课程-学习脚本',
 			hideInPanel: true,
 			matches: [
 				['学习首页', /polymas.com\/stu-hike\/agent-course-full\/.*\/stu\/(course-home|study)/],
@@ -2302,7 +2302,7 @@ export const ZHSProject = Project.create({
 		}),
 		'hike-work': new Script({
 			matches: [['AI教学中心-作业任务页面', '/stu-hike/stuHomeworkDo']],
-			name: '✍️ 教学空间-AI智慧课程-作业考试脚本',
+			name: '教学空间-AI智慧课程-作业考试脚本',
 			hideInPanel: true,
 			namespace: zhsWorkNamespace,
 			configs: {
@@ -2334,7 +2334,7 @@ export const ZHSProject = Project.create({
 				['AI教学中心-题目作业', '/stu/answer-homework'],
 				['AI教学中心-作业任务页面', '/stu-exam/answer-exam']
 			],
-			name: '✍️ 教学空间-AI智慧课程-题目作业脚本',
+			name: '教学空间-AI智慧课程-题目作业脚本',
 			hideInPanel: true,
 			namespace: zhsWorkNamespace,
 			configs: {
@@ -2610,7 +2610,12 @@ function gxkWorkAndExam(
 				return !!img.closest('.node_detail');
 			}
 		});
-	let request_index = 0;
+	/**
+	 * 题目序号按题目元素在页面中的位置计算，而不是按搜题调用次数递增：
+	 * 重试与补答会再次调用搜题，计数器会错位到别的题目上。
+	 */
+	const questionIndexOf = (root: HTMLElement) =>
+		Array.from(document.querySelectorAll<HTMLElement>('.examPaper_subject')).indexOf(root);
 	/** 新建答题器 */
 	const worker = new OCSWorker({
 		root: '.examPaper_subject',
@@ -2627,7 +2632,7 @@ function gxkWorkAndExam(
 		answerSeparators: answerSeparators.split(',').map((s) => s.trim()),
 		/** 默认搜题方法构造器 */
 		answerer: createCommonAnswerer({
-			titleTransform: () => titleTransform(undefined, request_index++),
+			titleTransform: (_elements, ctx) => titleTransform(undefined, questionIndexOf(ctx.root)),
 			optionsTransform: (elements, ctx) => {
 				if (ctx.type === 'completion') return '';
 				const optResults = (ctx.elements.options ?? []).filter(Boolean).map((o: any) => optionExtract(o));
@@ -2702,7 +2707,7 @@ function gxkWorkAndExam(
 			$message.success({ content: `答题完成，将等待 ${stopSecondWhenFinish} 秒后进行保存或提交。` });
 			await $.sleep(stopSecondWhenFinish * 1000);
 			// @ts-ignore
-			if (worker.isClose === true) {
+			if (worker.isClose === true || WorkerEngineConfig.blockedReason) {
 				return;
 			}
 			/**
@@ -2714,7 +2719,7 @@ function gxkWorkAndExam(
 					return;
 				}
 				const modal = $modal.alert({
-					title: '⚠️提示',
+					title: '提示',
 					content: `正在自动保存题目中，不然填写的答案将无效，<br>当前进度 ${index}/${worker.totalQuestionCount}<br>保存完毕前请勿操作...`,
 					confirmButton: null,
 					maskCloseable: false
@@ -2812,7 +2817,13 @@ function xnkWork({ answererWrappers, period, thread, answerSeparators }: CommonW
 
 	(async () => {
 		while (next && worker.isClose === false) {
-			await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			try {
+				await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			} catch (err) {
+				// 答题出错或已停用（页面上有另一个 OCS）：结束逐题循环
+				console.error(err);
+				break;
+			}
 			await $.sleep(1000);
 			next = getBtn();
 			next?.click();
@@ -2948,7 +2959,13 @@ function smartWork(
 		}
 		let count = 0;
 		while (worker.isClose === false) {
-			await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			try {
+				await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			} catch (err) {
+				// 答题出错或已停用（页面上有另一个 OCS）：结束逐题循环
+				console.error(err);
+				break;
+			}
 			next = getNextBtn();
 			if (!next) {
 				break;
@@ -3096,7 +3113,13 @@ function smartExam(
 		}
 		let count = 0;
 		while (worker.isClose === false) {
-			await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			try {
+				await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			} catch (err) {
+				// 答题出错或已停用（页面上有另一个 OCS）：结束逐题循环
+				console.error(err);
+				break;
+			}
 			next = getNextBtn();
 			if (!next) {
 				break;
@@ -3334,7 +3357,13 @@ function hikeWork(
 		}
 
 		while (next && worker.isClose === false) {
-			await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			try {
+				await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			} catch (err) {
+				// 答题出错或已停用（页面上有另一个 OCS）：结束逐题循环
+				console.error(err);
+				break;
+			}
 			next = getNextBtn();
 			if (next) {
 				await $.sleep(1000);

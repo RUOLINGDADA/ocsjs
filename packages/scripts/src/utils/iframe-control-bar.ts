@@ -21,8 +21,8 @@ let reloadBtn: HTMLInputElement | undefined;
 
 /** 构建操控条（在顶层窗口执行，$elements.root 内共享脚本样式表，可直接使用 base-style-button 等样式） */
 function buildControlBar(): HTMLElement {
-	pauseBtn = $ui.button('⏸暂停', { style: { padding: '0px 8px', fontSize: '12px', lineHeight: '20px' } });
-	reloadBtn = $ui.button('🔃重新答题', { style: { padding: '0px 8px', fontSize: '12px', lineHeight: '20px' } });
+	pauseBtn = $ui.button('暂停', { style: { padding: '0px 8px', fontSize: '12px', lineHeight: '20px' } });
+	reloadBtn = $ui.button('重新答题', { style: { padding: '0px 8px', fontSize: '12px', lineHeight: '20px' } });
 
 	pauseBtn.onclick = () => {
 		// 按钮状态由子帧执行指令后回同步（render），此处仅发送指令
@@ -43,8 +43,8 @@ function buildControlBar(): HTMLElement {
 		h('div', { className: 'tip-content' }, [
 			h('div', { style: { fontWeight: 'bold', marginBottom: '4px' } }, 'OCS 答题操作面板'),
 			h('div', '当前页面由 OCS 网课助手自动答题中，可进行以下操作：'),
-			h('div', '⏸暂停/▶️继续：暂停或恢复自动答题'),
-			h('div', '🔃重新答题：刷新页面，重新开始自动答题')
+			h('div', '暂停/继续：暂停或恢复自动答题'),
+			h('div', '重新答题：刷新页面，重新开始自动答题')
 		])
 	]);
 
@@ -105,7 +105,7 @@ export const IframeControlBar = {
 		}
 		if (pauseBtn) {
 			pauseBtn.dataset.paused = String(barState.paused);
-			pauseBtn.value = barState.paused ? '▶️继续' : '⏸️暂停';
+			pauseBtn.value = barState.paused ? '继续' : '暂停';
 			pauseBtn.disabled = barState.done;
 		}
 	}),

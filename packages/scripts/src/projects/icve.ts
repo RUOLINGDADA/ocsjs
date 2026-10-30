@@ -62,7 +62,7 @@ export const IcveMoocProject = Project.create({
 	],
 	scripts: {
 		guide: new Script({
-			name: '💡 使用提示',
+			name: '使用提示',
 			matches: [
 				['个人首页', 'icve.com.cn/studycenter'],
 				['学习页面', 'icve.com.cn/study/directory'],
@@ -82,7 +82,7 @@ export const IcveMoocProject = Project.create({
 		}),
 		/** 智慧职教学习中心 */
 		studyCenter: new Script({
-			name: '🖥️ 智慧职教-学习中心',
+			name: '智慧职教-学习中心',
 			namespace: 'icve.study.center',
 			matches: [
 				['学习中心页面', '/study/directory/dir_course.html'],
@@ -206,7 +206,7 @@ export const IcveMoocProject = Project.create({
 		}),
 		/** MOOC 学院 */
 		study: new Script({
-			name: '🖥️ MOOC学院-课程学习',
+			name: 'MOOC学院-课程学习',
 			namespace: 'icve.study.main',
 			matches: [['课程学习页面', '/learnspace/learn/learn/templateeight/index.action']],
 			configs: {
@@ -248,7 +248,7 @@ export const IcveMoocProject = Project.create({
 					this.onConfigChange('playbackRate', (playbackRate) => {
 						if (playbackRate > 4) {
 							$modal.alert({
-								title: '⚠️高倍速警告',
+								title: '高倍速警告',
 								content: $ui.notes(['高倍速可能导致视频无法完成！'])
 							});
 						}
@@ -408,7 +408,7 @@ export const IcveMoocProject = Project.create({
 		}),
 
 		work: new Script({
-			name: '✍️ 作业考试脚本',
+			name: '作业考试脚本',
 			matches: [['作业考试页面', '/exam']],
 			namespace: 'icve.work',
 			configs: {
@@ -463,7 +463,7 @@ export const IcveMoocProject = Project.create({
 			}
 		}),
 		'ai-study': new Script({
-			name: '🖥️ AI课程',
+			name: 'AI课程',
 			namespace: 'icve.ai.study',
 			matches: [
 				['课程页面', 'ai.icve.com.cn/app/coursedetails-excellent'],
@@ -701,7 +701,7 @@ export const IcveMoocProject = Project.create({
 			}
 		}),
 		'ai-work': new Script({
-			name: '✍️ AI作业',
+			name: 'AI作业',
 			namespace: 'icve.ai.work',
 			matches: [['作业页面', 'ai.icve.com.cn/preview-exam']],
 			configs: {
@@ -919,7 +919,13 @@ function work({ answererWrappers, period, thread, answerSeparators }: CommonWork
 
 	(async () => {
 		while (next && worker.isClose === false) {
-			await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			try {
+				await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			} catch (err) {
+				// 答题出错或已停用（页面上有另一个 OCS）：结束逐题循环
+				console.error(err);
+				break;
+			}
 			await $.sleep(1000);
 			next = getNextBtn();
 			if (next.style.display === 'none') {
@@ -1059,7 +1065,13 @@ function aiWork({ answererWrappers, period, thread, answerSeparators }: CommonWo
 
 	(async () => {
 		while (next && worker.isClose === false) {
-			await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			try {
+				await worker.doWork({ enable_debug: BackgroundProject.scripts.dev.cfg.enable_answerer_debug });
+			} catch (err) {
+				// 答题出错或已停用（页面上有另一个 OCS）：结束逐题循环
+				console.error(err);
+				break;
+			}
 			await $.sleep(1000);
 			next = getNextBtn();
 			if (next.getAttribute('disabled')) {

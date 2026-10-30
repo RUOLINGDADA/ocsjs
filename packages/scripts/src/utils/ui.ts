@@ -2,6 +2,7 @@
 import { h, $ui } from 'easy-us';
 import { request, $ } from '@ocsjs/core';
 import type { AnswererWrapper } from '@ocsjs/core';
+import { icons } from './icons';
 
 /**
  * OCS 通用 UI 组件库
@@ -233,16 +234,13 @@ export function createAnswererWrapperList(aw: AnswererWrapper[], handlers: Answe
 
 		/** 主页图标：点击进入题库主页（阻止冒泡，避免触发卡片展开） */
 		const hasHomepage = !!item.homepage && item.homepage !== '#';
-		const homeLink = h(
-			'a',
-			{
-				className: 'aw-card-home' + (hasHomepage ? '' : ' no-home'),
-				href: hasHomepage ? item.homepage! : 'javascript:void(0)',
-				target: '_blank',
-				title: hasHomepage ? '前往题库首页' : '此题库未配置首页'
-			},
-			'🏠'
-		);
+		const homeLink = h('a', {
+			className: 'aw-card-home' + (hasHomepage ? '' : ' no-home'),
+			href: hasHomepage ? item.homepage! : 'javascript:void(0)',
+			target: '_blank',
+			title: hasHomepage ? '前往题库首页' : '此题库未配置首页',
+			innerHTML: icons.home
+		});
 		homeLink.onclick = (e) => e.stopPropagation();
 
 		/** 卡片头：主页图标 + 名称 + 域名徽标 + 状态徽标 + 右侧开关 + 箭头，点击整行展开/收起 */
@@ -304,12 +302,14 @@ export function createAnswererWrapperSection(
 /**
  * 「⋯」题库配置获取方式下拉按钮
  *
- * 悬浮显示下拉框（官方题库 / 自定义题库），点击选项直接打开对应配置弹窗：
+ * 悬浮显示下拉框（官方题库 / 自定义题库 / AI 题库），点击选项直接打开对应配置弹窗：
  * - 弹窗打开函数由题库配置按钮（answererWrappersButton）的 onload 暴露在 provider 上
  * - 未暴露时兜底触发主按钮点击（默认官方一键获取）
  * - 定位：右对齐「⋯」按钮；面板下方空间不足时自动向上弹出
+ *
+ * @param options.onAiConfig 打开 AI 题库配置面板的回调，不传则不显示「AI 题库」项
  */
-export function createAnswererModeDropdown(): HTMLElement {
+export function createAnswererModeDropdown(config: { onAiConfig?: () => void } = {}): HTMLElement {
 	const dropdown = h('dropdown-element');
 	// 必须在插入文档前设置，connectedCallback 会根据该值绑定事件
 	// hover 触发：鼠标悬浮「⋯」按钮显示，移开（含点击其他区域）自动隐藏
@@ -349,7 +349,7 @@ export function createAnswererModeDropdown(): HTMLElement {
 		});
 	});
 
-	const options: Record<'official' | 'custom', HTMLDivElement> = {
+	const options: Record<'official' | 'custom' | 'ai', HTMLDivElement | undefined> = {
 		official: $ui.tooltip(
 			h(
 				'div',
@@ -362,7 +362,17 @@ export function createAnswererModeDropdown(): HTMLElement {
 		),
 		custom: $ui.tooltip(
 			h('div', { className: 'dropdown-option', title: '打开手动配置弹窗，手动填写或粘贴题库配置' }, '自定义题库')
-		)
+		),
+		// 仅当调用方提供了打开回调时显示（AI 面板由 projects/common.ts 提供）
+		ai: config.onAiConfig
+			? $ui.tooltip(
+					h(
+						'div',
+						{ className: 'dropdown-option', title: '打开 AI 题库配置，填写你自己的大模型接口，用 AI 直接作答' },
+						'AI 题库'
+					)
+			  )
+			: undefined
 	};
 	/** 点击选项直接打开对应配置弹窗（主按钮默认官方一键获取，自定义题库仅从此处进入） */
 	const openAnswererModal = (mode: 'official' | 'custom') => {
@@ -382,9 +392,12 @@ export function createAnswererModeDropdown(): HTMLElement {
 			provider?.click();
 		}
 	};
-	options.official.onclick = () => openAnswererModal('official');
-	options.custom.onclick = () => openAnswererModal('custom');
-	dropdown.content.append(options.official, options.custom);
+	options.official!.onclick = () => openAnswererModal('official');
+	options.custom!.onclick = () => openAnswererModal('custom');
+	if (options.ai && config.onAiConfig) {
+		options.ai.onclick = () => config.onAiConfig!();
+	}
+	dropdown.content.append(options.official!, options.custom!, ...(options.ai ? [options.ai] : []));
 	return dropdown;
 }
 
@@ -436,7 +449,7 @@ export interface HeroOptions {
  */
 export function createHero(opts: HeroOptions): HTMLElement {
 	return h('div', { className: 'aw-connect-hero' }, [
-		h('div', { className: 'aw-connect-hero-icon' }, opts.icon),
+		...(opts.icon ? [h('div', { className: 'aw-connect-hero-icon', innerHTML: opts.icon })] : []),
 		h('div', { className: 'aw-connect-hero-title' }, opts.title),
 		h('div', { className: 'aw-connect-hero-subtitle' }, opts.subtitle),
 		...(opts.extra ? [h('div', { className: 'aw-connect-hero-extra' }, [opts.extra])] : [])

@@ -4,7 +4,7 @@ export type { SingleResolveResult } from './single';
 export { resolveMultiple, disambiguateSimilarOptions } from './multiple';
 export type { MultipleResolveResult, MultipleMatchGroup } from './multiple';
 
-export { resolveJudgement, isJudgementOptions } from './judgement';
+export { resolveJudgement, isJudgementOptions, classifyJudgement, CORRECT_WORDS, INCORRECT_WORDS } from './judgement';
 export type { JudgementResolveResult } from './judgement';
 
 export { resolveCompletion } from './completion';

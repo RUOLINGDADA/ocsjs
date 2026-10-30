@@ -1187,3 +1187,315 @@ modal-element .modal-cancel-button:hover {
 	color: #606266;
 	font-size: 12px;
 }
+
+/** ===== AI 题库配置面板（utils/ai/ui.ts，类名统一 ai- 前缀） ===== */
+
+.ai-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding-bottom: 8px;
+}
+
+.ai-section {
+	padding: 12px;
+}
+
+.ai-section-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.ai-section-title {
+	font-weight: 600;
+	font-size: 14px;
+	color: #1f2329;
+}
+
+.ai-section-footer {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 10px;
+	padding-top: 8px;
+	border-top: 1px dashed #e6ebf2;
+}
+
+/**
+ * 键值行：左标签固定宽度，右控件自适应，说明文字（.ai-row-desc）换到下一行。
+ * 必须允许换行：不换行时 .ai-row-desc 的 flex-basis:100% 会把 .ai-row-control 挤成 0 宽，
+ * 输入框整个消失（编辑弹窗里只剩标签和说明文字）。
+ */
+.ai-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	column-gap: 8px;
+	row-gap: 2px;
+	padding: 4px 0;
+}
+
+.ai-row-label {
+	flex: none;
+	width: 108px;
+	font-size: 13px;
+	/** 弹窗默认行高 24px，标签折成两行（如「最大回复 token」）时过于松散 */
+	line-height: 1.4;
+	color: #4b5563;
+}
+
+.ai-row-control {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+
+	/**
+	 * 输入控件底色：base-style-active-form-control 只有透明边框，
+	 * 放在白底弹窗里看不出输入框，这里与 OCS 原生配置项保持一致的浅灰底圆角样式
+	 */
+	> input:not([type='checkbox']):not([type='radio']),
+	> select,
+	> .ai-inline > input {
+		box-sizing: border-box;
+		max-width: 100%;
+		min-height: 28px;
+		padding: 4px 8px;
+		border-radius: 8px;
+		background-color: #eef2f7;
+		color: black;
+		outline: none;
+
+		&:hover {
+			background-color: #e6ebf2;
+		}
+
+		&::placeholder {
+			color: #bababa;
+		}
+	}
+}
+
+.ai-row-desc {
+	box-sizing: border-box;
+	flex-basis: 100%;
+	padding-left: 116px;
+	font-size: 12px;
+	line-height: 1.5;
+	color: #9aa4b2;
+}
+
+.ai-inline {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+
+	/** 输入框占满剩余宽度，按钮保持一行，避免「显示」按钮被挤成竖排 */
+	> input {
+		flex: 1;
+		min-width: 0;
+	}
+
+	> button {
+		flex: none;
+		white-space: nowrap;
+	}
+}
+
+/** 配置卡片 */
+.ai-card {
+	border: 1px solid #e3e8ee;
+	border-radius: 8px;
+	background-color: #fff;
+	margin-bottom: 8px;
+	overflow: hidden;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+	&:hover {
+		border-color: #b6c6dd;
+		box-shadow: 0 2px 8px rgba(31, 35, 41, 0.06);
+	}
+
+	&.active {
+		border-color: @primary;
+		box-shadow: 0 0 0 1px fade(@primary, 25%);
+	}
+
+	&.disabled {
+		opacity: 0.6;
+	}
+}
+
+.ai-card-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	background-color: #f8fafc;
+}
+
+.ai-card-name {
+	font-weight: 600;
+	font-size: 14px;
+	color: #1f2329;
+	max-width: 180px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.ai-card-badge {
+	flex: none;
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 11px;
+	line-height: 18px;
+	color: #4b5563;
+	background-color: #eef2f7;
+
+	&.host {
+		max-width: 180px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: #6b7280;
+	}
+}
+
+.ai-card-spacer {
+	flex: 1;
+}
+
+.ai-card-body {
+	padding: 8px 12px 10px;
+	border-top: 1px solid #eef2f7;
+}
+
+.ai-card-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 10px;
+}
+
+.ai-detail-row {
+	display: flex;
+	gap: 8px;
+	font-size: 12px;
+	line-height: 20px;
+}
+
+.ai-detail-label {
+	flex: none;
+	width: 64px;
+	color: #9aa4b2;
+}
+
+.ai-detail-value {
+	flex: 1;
+	min-width: 0;
+	color: #374151;
+	word-break: break-all;
+}
+
+/** 连接测试状态 */
+.ai-probe {
+	flex: none;
+	font-size: 11px;
+	line-height: 18px;
+	padding: 1px 6px;
+	border-radius: 4px;
+	cursor: help;
+
+	&.testing {
+		color: #8a6d3b;
+		background-color: #fcf8e3;
+	}
+
+	&.success {
+		color: #1e7e34;
+		background-color: #e6f7ea;
+	}
+
+	&.error {
+		color: #c0392b;
+		background-color: #fdecea;
+	}
+}
+
+/** 空态 */
+.ai-empty {
+	padding: 20px 12px;
+	text-align: center;
+	border: 1px dashed #dfe6ee;
+	border-radius: 8px;
+	background-color: #fbfcfe;
+}
+
+.ai-empty-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: #4b5563;
+	margin-bottom: 6px;
+}
+
+.ai-empty-desc {
+	font-size: 12px;
+	line-height: 1.7;
+	color: #9aa4b2;
+}
+
+/** 编辑弹窗 */
+.ai-editor {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 62vh;
+	overflow: auto;
+	padding-right: 4px;
+
+	.ai-row-label {
+		width: 96px;
+	}
+
+	/** 与上面的标签宽度对齐：96px + 8px 列间距 */
+	.ai-row-desc {
+		padding-left: 104px;
+	}
+}
+
+.ai-editor-footer {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.ai-advanced {
+	margin-top: 8px;
+	padding-top: 8px;
+	border-top: 1px dashed #e6ebf2;
+
+	> summary {
+		cursor: pointer;
+		font-size: 13px;
+		color: #4b5563;
+		margin-bottom: 6px;
+		user-select: none;
+
+		&:hover {
+			color: @primary;
+		}
+	}
+}
+
+.ai-preset-note {
+	margin-top: 8px;
+	font-size: 12px;
+	line-height: 1.6;
+	color: #9aa4b2;
+	word-break: break-all;
+}

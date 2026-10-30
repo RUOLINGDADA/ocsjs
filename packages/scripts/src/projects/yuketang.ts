@@ -45,7 +45,7 @@ export const YKTProject = Project.create({
 	domains: ['yuketang.cn', 'gdufemooc.cn'],
 	scripts: {
 		guide: new Script({
-			name: '💡 使用提示',
+			name: '使用提示',
 			matches: [
 				['雨课堂课程列表', '/v2/web/index'],
 				['学习内容界面', '/v2/web/studentLog'],
@@ -95,7 +95,7 @@ export const YKTProject = Project.create({
 			oncomplete() {}
 		}),
 		ppt: new Script({
-			name: '📚 PPT自动阅读',
+			name: 'PPT自动阅读',
 			matches: [['PPT界面', /v2\/web\/studentCards\/.*\/ppt/]],
 			hideInPanel: true,
 			async oncomplete() {
@@ -114,7 +114,7 @@ export const YKTProject = Project.create({
 		 * 旧版 v2/web 学习已废弃、目前大部分雨课堂主要为  ai-workspace， 其中存在区别： 部分 ai 课存在 AI学伴（右侧智能体功能）
 		 */
 		ai: new Script({
-			name: '🖥️ 课程学习',
+			name: '课程学习',
 			matches: [
 				['学习中心', '/v2/web/index'],
 				['课程列表', '/v2/web/studentLog'],

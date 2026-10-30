@@ -6,9 +6,9 @@ export interface JudgementResolveResult {
 	option?: string;
 }
 
-const CORRECT_WORDS = ['是', '对', '正确', '确定', '√', '对的', '是的', '正确的', 'true', 'True', 'T', 'yes', '1'];
+export const CORRECT_WORDS = ['是', '对', '正确', '确定', '√', '对的', '是的', '正确的', 'true', 'True', 'T', 'yes', '1'];
 
-const INCORRECT_WORDS = [
+export const INCORRECT_WORDS = [
 	'非',
 	'否',
 	'错',
@@ -66,6 +66,21 @@ function matches(target: string, words: string[]) {
 	return words.some(
 		(word) => clearString(removeRedundant(word), '√', '×') === clearString(removeRedundant(target), '√', '×')
 	);
+}
+
+/**
+ * 判断题语义分类：把任意一段文本归类为「正确 / 错误」。
+ *
+ * 供 AI 答案解析复用同一套词表，避免 AI 返回「对」而选项是「正确」时匹配失败。
+ *
+ * @returns correct | incorrect | undefined（无法判断）
+ */
+export function classifyJudgement(text: string): 'correct' | 'incorrect' | undefined {
+	const value = String(text ?? '').trim();
+	if (!value) return undefined;
+	if (matches(value, CORRECT_WORDS)) return 'correct';
+	if (matches(value, INCORRECT_WORDS)) return 'incorrect';
+	return undefined;
 }
 
 /** 检测选项是否为判断题性质（仅有两个选项，且分别为"对"和"错"性质） */

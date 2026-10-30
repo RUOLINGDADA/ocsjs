@@ -155,7 +155,7 @@ export function createQuestionTitleExtra(question: string, ...left: HTMLElement[
 		}, 500);
 	};
 	/** 百度搜题按钮 */
-	const baiduBtn = $ui.button('🌏百度一下', btnAttrs);
+	const baiduBtn = $ui.button('百度一下', btnAttrs);
 	baiduBtn.onclick = () => {
 		popupWin?.close();
 		popupWin = $.createCenteredPopupWindow(`https://www.baidu.com/s?wd=${question}`, '百度搜索', {

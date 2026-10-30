@@ -72,7 +72,7 @@ export const ICourseProject = Project.create({
 			}
 		}),
 		guide: new Script({
-			name: '💡 使用提示',
+			name: '使用提示',
 			matches: [['', 'icourse163.org']],
 			// 添加版本号是因为只有 notes 会强制更新，其他配置项不会，如果需要修改 runAtHash ，需要更新版本号
 			namespace: 'icourse.guide-v1',
@@ -95,7 +95,7 @@ export const ICourseProject = Project.create({
 			}
 		}),
 		study: new Script({
-			name: '🖥️ 学习脚本',
+			name: '学习脚本',
 			// 添加版本号是因为只有 notes 会强制更新，其他配置项不会，如果需要修改 runAtHash ，需要更新版本号
 			namespace: 'icourse.study-v1',
 			matches: [
@@ -356,7 +356,7 @@ export const ICourseProject = Project.create({
 			}
 		}),
 		study_v2: new Script({
-			name: '🖥️ 智慧慕课',
+			name: '智慧慕课',
 			matches: [['新智慧慕课', '/mooc/learn']],
 			namespace: 'icourse.study-v2',
 			configs: {
@@ -591,7 +591,7 @@ export const ICourseProject = Project.create({
 			}
 		}),
 		work: new Script({
-			name: '✍️ 作业考试脚本',
+			name: '作业考试脚本',
 			// 添加版本号是因为只有 notes 会强制更新，其他配置项不会，如果需要修改 runAtHash ，需要更新版本号
 			namespace: 'icourse.work-v2',
 			matches: [
@@ -603,9 +603,9 @@ export const ICourseProject = Project.create({
 				notes: {
 					defaultValue: $ui.notes([
 						'自动答题前请在 “通用-全局设置” 中设置题库配置。',
-						'⚠️禁止同时开多个作业/考试页面。',
+						'禁止同时开多个作业/考试页面。',
 						[
-							'⚠️由于MOOC限制、答题速度和搜题速度将默认调慢',
+							'由于MOOC限制、答题速度和搜题速度将默认调慢',
 							' 防止出现网络并发，导致无法选上选项的问题。',
 							' 答题和搜题过慢是正常情况。'
 						]

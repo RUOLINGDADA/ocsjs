@@ -9,7 +9,7 @@ export const $playwright = {
 		]);
 		$modal.alert({
 			maskCloseable: false,
-			title: '⛔ 错误',
+			title: '错误',
 			confirmButtonText: '查看详情',
 			content: errorEl.cloneNode(true),
 			onConfirm() {

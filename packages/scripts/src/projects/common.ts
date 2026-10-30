@@ -1,13 +1,13 @@
 import debounce from 'lodash/debounce';
 import {
-	defaultAnswerWrapperHandler,
 	AnswerWrapperParser,
 	SimplifyWorkResult,
 	WorkUploadType,
-	AnswerWrapperHandlerConfig
+	AnswerWrapperHandlerConfig,
+	WorkerEngineConfig
 } from '@ocsjs/core';
 import { $message, h, $gm, $store, Project, Script, $modal, $ui, MessageElement, cors } from 'easy-us';
-import type { AnswererWrapper } from '@ocsjs/core';
+import type { AiProfile, AnswererWrapper } from '@ocsjs/core';
 import { CXProject, ICourseProject, IcveMoocProject, YKTProject, ZHSProject, ZJYProject } from '../index';
 import { BackgroundProject } from './background';
 import { enableCopy } from '../utils';
@@ -30,6 +30,10 @@ import {
 	createAnswererModeDropdown,
 	loadingSpinSvg
 } from '../utils/ui';
+import { AiAnswerMode, getAiSettings } from '../utils/ai/config';
+import { createAiAnswererPanel } from '../utils/ai/ui';
+import { hasUsableAnswerer, runAnswererPipeline } from '../utils/ai/answerer';
+import { icons } from '../utils/icons';
 
 const TAB_WORK_RESULTS_KEY = 'common.work-results.results';
 
@@ -82,8 +86,16 @@ export const CommonEvents = {
 const count = (results: SimplifyWorkResult[]) => ({
 	total: results.length,
 	requested: results.filter((r) => r.requested).length,
-	resolved: results.filter((r) => r.resolved).length
+	resolved: results.filter((r) => r.resolved).length,
+	finished: results.filter((r) => r.finish === true).length,
+	retrying: results.filter((r) => r.retrying || r.searching).length,
+	failed: results.filter((r) => isFailedResult(r)).length
 });
+
+/** 已经作答但没有完成，且不在重试中 */
+function isFailedResult(result: SimplifyWorkResult) {
+	return result.finish !== true && result.resolved === true && !result.retrying && !result.searching;
+}
 
 /**
  * 答题完成（finish === true）的结果自动写入题库缓存。
@@ -95,9 +107,15 @@ const cacheIfFinished = (result: SimplifyWorkResult) => {
 	if (CommonProject.scripts.settings.cfg.enableQuestionCaches === false) {
 		return;
 	}
-	if (result.finish === true) {
-		BackgroundProject.scripts.data.methods.addQuestionCacheFromWorkResult([result]);
+	if (result.finish !== true) {
+		return;
 	}
+	// AI 答案单独开关：模型可能被切换，用户可选择不把 AI 答案长期留在缓存里
+	const hasAiAnswer = result.searchInfos.some((info) => info.results.some((res) => !!(res[2] as any)?.ai));
+	if (hasAiAnswer && getAiSettings().answerCache === false) {
+		return;
+	}
+	BackgroundProject.scripts.data.methods.addQuestionCacheFromWorkResult([result]);
 };
 
 /**
@@ -190,15 +208,15 @@ export const CommonProject = Project.create({
 	domains: [],
 	scripts: {
 		guide: new Script({
-			name: '🏠 使用教程',
+			name: '使用教程',
 			matches: [['所有页面', /.*/]],
 			namespace: 'common.guide',
 			configs: {
 				notes: {
 					defaultValue: $ui.notes([
 						'打开任意网课平台，进入视频、作业页面等待脚本运行，',
-						'⚠️ 禁止与其他脚本一起使用（不兼容），也不能开多个相同脚本',
-						'⚠️ 禁止最小化浏览器、切屏，否则可能导致脚本无法运行！',
+						'禁止与其他脚本一起使用（不兼容），也不能开多个相同脚本',
+						'禁止最小化浏览器、切屏，否则可能导致脚本无法运行！',
 						'有疑问请访问下方交流群，进群后带截图进行反馈。'
 					]).outerHTML
 				}
@@ -209,19 +227,63 @@ export const CommonProject = Project.create({
 			}
 		}),
 		settings: new Script({
-			name: '⚙️ 全局设置',
+			name: '全局设置',
 			matches: [['所有页面', /.*/]],
 			namespace: 'common.settings',
 			configs: {
 				notes: {
 					defaultValue: $ui.notes([
-						'✨鼠标移动到按钮或者输入框，可以看到提示！',
-						'想要自动答题必须设置 “题库配置” ',
+						'鼠标移动到按钮或者输入框，可以看到提示！',
+						'想要自动答题必须配置 “AI 题库” 或 “题库配置”（至少填一个）',
 						'设置后进入章节测试，作业，考试页面即可自动答题。'
 					]).outerHTML
 				},
+				aiEnabled: {
+					defaultValue: false
+				},
+				aiMode: {
+					defaultValue: 'ai-first' as AiAnswerMode
+				},
+				aiActiveProfileId: {
+					defaultValue: ''
+				},
+				aiProfiles: {
+					defaultValue: [] as AiProfile[]
+				},
+				aiMaxConcurrency: {
+					defaultValue: 2
+				},
+				aiMinConfidence: {
+					defaultValue: 0
+				},
+				aiAnswerCache: {
+					defaultValue: true
+				},
+				aiAnswererButton: {
+					label: 'AI 题库',
+					defaultValue: '点击配置',
+					attrs: { type: 'button' },
+					onload() {
+						const settings = CommonProject.scripts.settings;
+						const syncLabel = () => {
+							const profile = getAiSettings().activeProfile;
+							const enabled = settings.cfg.aiEnabled === true;
+							if (!profile) {
+								this.value = '未配置（点击配置）';
+							} else if (!enabled) {
+								this.value = `已配置 ${profile.name}（未启用，点击开启）`;
+							} else {
+								this.value = `${profile.name}（${profile.model}）`;
+							}
+						};
+						syncLabel();
+						this.onclick = () => {
+							BackgroundProject.scripts.render.methods.pin(CommonProject.scripts.aiAnswerer);
+						};
+					}
+				},
 				answererWrappers: {
-					separator: '自动答题设置',
+					separator: '固定题库设置',
 					defaultValue: [] as AnswererWrapper[]
 				},
 				/**
@@ -245,10 +307,12 @@ export const CommonProject = Project.create({
 					attrs: {
 						type: 'button'
 					},
-					/** 「⋯」更多按钮：悬浮显示下拉框，选择题库配置获取方式（官方题库 / 自定义题库），点击选项直接打开对应弹窗（组件见 utils/ui.ts） */
+					/** 「⋯」更多按钮：悬浮显示下拉框，选择题库配置获取方式（官方题库 / 自定义题库 / AI 题库），点击选项直接打开对应弹窗（组件见 utils/ui.ts） */
 					suffixSlot() {
-						// 未配置一键获取渠道时不显示「⋯」下拉（主按钮直接使用自定义题库弹窗）
-						return getAnswererConfigProvider() ? createAnswererModeDropdown() : '';
+						const onAiConfig = () => {
+							BackgroundProject.scripts.render.methods.pin(CommonProject.scripts.aiAnswerer);
+						};
+						return createAnswererModeDropdown({ onAiConfig });
 					},
 					onload() {
 						const aws: any[] = CommonProject.scripts.settings.cfg.answererWrappers || [];
@@ -328,7 +392,7 @@ export const CommonProject = Project.create({
 								// 一键获取流程（showSuccessModal=false）不弹提示，由弹窗内成功状态承接
 								if (JSON.stringify(CommonProject.scripts.settings.cfg.answererWrappers) === JSON.stringify(awsResult)) {
 									if (showSuccessModal) {
-										$modal.alert({ content: h('div', ['✅️已应用题库配置，但您新配置的题库似乎没有变化~']) });
+										$modal.alert({ content: h('div', ['已应用题库配置，但您新配置的题库似乎没有变化~']) });
 									}
 									return true;
 								}
@@ -363,7 +427,7 @@ export const CommonProject = Project.create({
 									$modal.confirm({
 										width: 600,
 										content: h('div', [
-											h('div', ['🎉 配置成功，', h('b', ' 刷新界面 '), '或者', h('b', ' 重新答题 '), '即可生效。']),
+											h('div', ['配置成功，', h('b', ' 刷新界面 '), '或者', h('b', ' 重新答题 '), '即可生效。']),
 											createAnswererWrapperSection(awsResult, '解析到的题库如下所示：', answererListHandlers, false)
 										]),
 										onConfirm: () => {
@@ -403,7 +467,7 @@ export const CommonProject = Project.create({
 										$modal.alert({
 											width: 600,
 											maskCloseable: false,
-											title: '⚠️警告',
+											title: '警告',
 											content: h('div', [
 												h('div', [
 													'配置成功，但检测到以下 域名/ip 不在脚本的白名单中，请安装 : ',
@@ -444,7 +508,7 @@ export const CommonProject = Project.create({
 											// connectUrl 非法时展示原文
 										}
 										return createHero({
-											icon: '🚀',
+											icon: icons.download,
 											title: '一键获取题库配置',
 											subtitle: '打开题库网站并登录即可，配置自动回填，无需手动复制粘贴',
 											extra: h('span', [
@@ -480,14 +544,14 @@ export const CommonProject = Project.create({
 											const win = openAnswererConnect();
 											if (!win) {
 												setConnectStatus(
-													'⚠️ 弹窗被浏览器拦截，请允许本站弹窗后重试，或点击题库配置旁的「⋯」选择「自定义题库」手动配置。',
+													'弹窗被浏览器拦截，请允许本站弹窗后重试，或点击题库配置旁的「⋯」选择「自定义题库」手动配置。',
 													'error'
 												);
 												return;
 											}
 											// 获取中：按钮进入加载状态，状态区域接管展示
 											setBtnLoading(true);
-											setConnectStatus('⏳ 正在等待您在题库网站完成登录，登录后配置将自动回填保存。', 'info');
+											setConnectStatus('正在等待您在题库网站完成登录，登录后配置将自动回填保存。', 'info');
 											try {
 												// 边缘状态自动关闭授权小窗：配置弹窗被关闭时取消获取（页面关闭/刷新由 pagehide 处理）
 												const aws = await waitForAnswererConfig(win, undefined, () => !modal?.isConnected);
@@ -500,10 +564,10 @@ export const CommonProject = Project.create({
 													await new Promise((resolve) => setTimeout(resolve, 1000));
 													// 3 秒倒计时提示后自动关闭题库站小窗（浏览器仅允许关闭由脚本 window.open 打开的窗口）
 													for (let i = 3; i > 0; i--) {
-														setConnectStatus(`✅ 题库配置已保存，${i} 秒后自动关闭小窗…`, 'success');
+														setConnectStatus(`题库配置已保存，${i} 秒后自动关闭小窗…`, 'success');
 														await new Promise((resolve) => setTimeout(resolve, 1000));
 													}
-													setConnectStatus('✅ 题库配置已保存，重新答题或刷新界面 即可生效。', 'success');
+													setConnectStatus('题库配置已保存，重新答题或刷新界面 即可生效。', 'success');
 													try {
 														win.close();
 													} catch {
@@ -511,10 +575,10 @@ export const CommonProject = Project.create({
 													}
 												} else {
 													// 保存被拦截（空配置/无变化/超上限），上方 alert 已说明原因
-													setConnectStatus('⚠️ 配置未保存，请根据提示处理后重试。', 'error');
+													setConnectStatus('配置未保存，请根据提示处理后重试。', 'error');
 												}
 											} catch (e: any) {
-												setConnectStatus('⚠️ ' + (e?.message ?? '获取题库配置失败'), 'error');
+												setConnectStatus('' + (e?.message ?? '获取题库配置失败'), 'error');
 											} finally {
 												// 结束后恢复按钮，上方保留最终状态文本
 												setBtnLoading(false);
@@ -527,7 +591,7 @@ export const CommonProject = Project.create({
 							const manualNotes = $ui.notes([
 								[
 									h('div', { style: { fontSize: '16px', marginBottom: '8px' } }, [
-										h('b', '题库配置填写教程👉：'),
+										h('b', '题库配置填写教程：'),
 										h('a', { href: 'https://docs.ocsjs.com/docs/work' }, 'https://docs.ocsjs.com/docs/work')
 									])
 								],
@@ -538,7 +602,7 @@ export const CommonProject = Project.create({
 											className: 'secondary'
 										},
 										[
-											'⚠️ 如果无法粘贴，请点->：',
+											'如果无法粘贴，请点->：',
 											h('button', '读取剪贴板', (btn) => {
 												btn.classList.add('base-style-button');
 												btn.onclick = () => {
@@ -555,10 +619,10 @@ export const CommonProject = Project.create({
 									h(
 										'div',
 										{ className: 'secondary' },
-										'⚠️ 如果想添加多个不同的题库配置，请在每个配置之间使用三个井号隔开: ###。'
+										'如果想添加多个不同的题库配置，请在每个配置之间使用三个井号隔开: ###。'
 									)
 								],
-								[h('div', { className: 'secondary' }, '⚠️ 配置第三方题库出现网页弹窗的，点击永久允许连接。')]
+								[h('div', { className: 'secondary' }, '配置第三方题库出现网页弹窗的，点击永久允许连接。')]
 							]);
 
 							/** 清空题库配置（确认后清空并关闭弹窗），一键获取/手动配置弹窗共用 */
@@ -944,6 +1008,33 @@ export const CommonProject = Project.create({
 					},
 					defaultValue: 3
 				},
+				retryAttempts: {
+					showIf: 'common.settings.advancedSettings',
+					elementClassName: 'config-details',
+					label: '单题尝试次数',
+					attrs: {
+						type: 'number',
+						min: 1,
+						step: 1,
+						max: 6,
+						title:
+							'一道题搜不到答案、请求报错或超时、答案对不上选项时，最多尝试几次（含第一次）。重试之间会逐步加长等待。'
+					},
+					defaultValue: 3
+				},
+				retrySweepRounds: {
+					showIf: 'common.settings.advancedSettings',
+					elementClassName: 'config-details',
+					label: '收尾补答轮数',
+					attrs: {
+						type: 'number',
+						min: 0,
+						step: 1,
+						max: 3,
+						title: '全部题目跑完后，对仍没答上的题再补答几轮。提交前会先完成补答，完成率按补答后的结果计算。'
+					},
+					defaultValue: 1
+				},
 				answerSeparators: {
 					showIf: 'common.settings.advancedSettings',
 					elementClassName: 'config-details',
@@ -1006,7 +1097,7 @@ export const CommonProject = Project.create({
 					tag: 'select',
 					defaultValue: 'only-notify' as 'only-notify' | 'notify-and-voice' | 'all' | 'no-notify',
 					suffixSlot: function () {
-						const btn = h('button', { className: 'base-style-button-secondary' }, '📢测试通知');
+						const btn = h('button', { className: 'base-style-button-secondary' }, '测试通知');
 						btn.onclick = () => {
 							this.methods.notificationBySetting('这是一条测试通知');
 						};
@@ -1024,7 +1115,7 @@ export const CommonProject = Project.create({
 					defaultValue: true,
 					attrs: { type: 'checkbox' },
 					suffixSlot: function () {
-						const btn = h('button', { className: 'base-style-button-secondary' }, '⚙️管理缓存');
+						const btn = h('button', { className: 'base-style-button-secondary' }, '管理缓存');
 						btn.onclick = () => {
 							BackgroundProject.scripts.data.methods.showQuestionCaches();
 						};
@@ -1080,10 +1171,55 @@ export const CommonProject = Project.create({
 			},
 			// 实时更新内部设置
 			oncomplete() {
+				/**
+				 * 同步「答题线程等待单题结果」的总宽限。
+				 *
+				 * AI 单题耗时可长达 60 秒（默认超时），若沿用小值（题库超时 + 10），
+				 * worker 会在 AI 还没返回时就判「答题超时！」。这里取
+				 * 「题库超时」与「AI 配置里最长的超时 + 10 秒」中的较大者。
+				 */
+				const syncResolveTimeout = () => {
+					const base = Number(this.cfg.answerWrapperHandlerTimeout) || 120;
+					const period = Number(this.cfg.period) || 3;
+					const settings = getAiSettings();
+					/**
+					 * 单次尝试的超时必须覆盖 AI 传输层自己的重试：
+					 * 超时 ×（重试次数 + 1）+ 指数退避 + 搜题间隔 + 余量。
+					 * 旧实现只给了「AI 超时 + 10 秒」，AI 一重试就被判失败。
+					 */
+					const aiBudgets = settings.profiles
+						.filter((p) => p.enabled !== false)
+						.map((p) => {
+							const timeout = Math.ceil((p.timeoutMs ?? 60000) / 1000);
+							const retries = Math.max(0, Math.min(5, Number(p.retries ?? 2)));
+							return timeout * (retries + 1) + (Math.pow(2, retries) - 1) + period + 15;
+						});
+					const aiMax = aiBudgets.length ? Math.max(...aiBudgets) : 0;
+					const seconds =
+						settings.enabled && settings.activeProfile ? Math.max(base + period + 10, aiMax) : base + period + 10;
+					AnswerWrapperHandlerConfig.resolve_timeout_seconds = seconds;
+					WorkerEngineConfig.attemptTimeoutMs = seconds * 1000;
+				};
+
+				const syncRetry = () => {
+					WorkerEngineConfig.retry.maxAttempts = Math.max(1, Math.min(6, Number(this.cfg.retryAttempts) || 3));
+					WorkerEngineConfig.retry.sweepRounds = Math.max(0, Math.min(3, Number(this.cfg.retrySweepRounds ?? 1)));
+				};
+				syncRetry();
+				this.onConfigChange('retryAttempts', syncRetry);
+				this.onConfigChange('retrySweepRounds', syncRetry);
+				this.onConfigChange('period', () => syncResolveTimeout());
+
 				AnswerWrapperHandlerConfig.timeout_seconds = this.cfg.answerWrapperHandlerTimeout;
 				this.onConfigChange('answerWrapperHandlerTimeout', (sec) => {
 					AnswerWrapperHandlerConfig.timeout_seconds = sec;
+					syncResolveTimeout();
 				});
+
+				syncResolveTimeout();
+				for (const key of ['aiEnabled', 'aiProfiles', 'aiActiveProfileId', 'aiMode']) {
+					this.onConfigChange(key as any, () => syncResolveTimeout());
+				}
 
 				// 图片题优化兼容性检测：仅提示，不限制。
 				// 因为上传内容由题库配置占位符决定，原题 title / options 不再被覆盖，
@@ -1139,8 +1275,52 @@ export const CommonProject = Project.create({
 			}
 		}).withEvents<{ 'answerer-wrapper-change': (curr: AnswererWrapper[], pre: AnswererWrapper[]) => void }>(),
 
+		/**
+		 * AI 题库配置面板
+		 *
+		 * 配置项集中存放在 common.settings（与固定题库配置同源，便于统一读取与同步），
+		 * 本脚本只负责渲染与交互，因此 configs 仅保留一个占位说明。
+		 */
+		aiAnswerer: new Script({
+			name: 'AI 题库',
+			matches: [['所有页面', /.*/]],
+			namespace: 'common.ai-answerer',
+			configs: {
+				notes: {
+					defaultValue: $ui.notes([
+						'把你自己申请的大模型接口配置填进来，脚本就会用 AI 直接作答，无需依赖固定题库。',
+						'题目内容会发送到你所填的第三方服务，请自行评估隐私风险；API Key 以明文保存在脚本管理器本地存储中，请勿在公共电脑上配置。',
+						'自定义接口域名不在脚本白名单内时请求会被拦截，需要安装「全域名通用版」或手动添加 @connect。',
+						'首次使用：添加配置 → 填 API Key → 测试连接 → 打开「启用 AI 答题」。'
+					]).outerHTML
+				}
+			},
+			onrender({ panel }) {
+				const rerender = () => {
+					const script = CommonProject.scripts.aiAnswerer;
+					if (script.panel && script.header) {
+						script.onrender?.({ panel: script.panel, header: script.header });
+					}
+				};
+				panel.body.replaceChildren(createAiAnswererPanel({ rerender }));
+			},
+			oncomplete() {
+				// AI 配置项存放在 common.settings 中，因此监听 settings 的配置变化（含桌面端同步写入）
+				const settings = CommonProject.scripts.settings;
+				const refresh = () => {
+					const script = CommonProject.scripts.aiAnswerer;
+					if (script.panel && script.header) {
+						script.onrender?.({ panel: script.panel, header: script.header });
+					}
+				};
+				for (const key of ['aiProfiles', 'aiActiveProfileId', 'aiEnabled', 'aiMode']) {
+					settings.onConfigChange(key as any, refresh);
+				}
+			}
+		}),
+
 		workResults: new Script({
-			name: '🔎 搜索结果',
+			name: '搜索结果',
 			matches: [['所有页面', /.*/]],
 			namespace: 'common.work-results',
 			configs: {
@@ -1246,7 +1426,7 @@ export const CommonProject = Project.create({
 					 */
 					createWorkResultsPanel: (mount?: HTMLElement) => {
 						const container = mount || h('div');
-						container.style.width = '400px';
+						container.classList.add('work-results');
 						/** 记录滚动高度 */
 						let scrollPercent = 0;
 
@@ -1257,31 +1437,44 @@ export const CommonProject = Project.create({
 							scrollPercent = list.scrollTop / list.scrollHeight;
 						};
 
+						/**
+						 * 答题卡格子状态（互斥，按优先级）：
+						 * 已完成 > 搜题中 > 等待重试 > 失败 > 已搜题待作答 > 未开始
+						 */
+						const numState = (result: SimplifyWorkResult) =>
+							result.finish === true
+								? 'finish'
+								: result.searching
+								? 'searching'
+								: result.retrying
+								? 'retrying'
+								: isFailedResult(result)
+								? 'error'
+								: result.requested
+								? 'requested'
+								: 'pending';
+						const numStateTitle: Record<string, string> = {
+							finish: '已作答',
+							searching: '搜题中',
+							retrying: '等待重试',
+							error: '未答上',
+							requested: '已搜到，等待作答',
+							pending: '未开始'
+						};
+
 						/** 给序号设置样式 */
 						const setNumStyle = (result: SimplifyWorkResult, num: HTMLElement, index: number) => {
-							// 正在搜题：序号方块边框显示转圈路径动画（保留序号数字，下一状态渲染时自动恢复）
-							if (result.searching) {
-								num.classList.add('searching');
-							}
-
-							if (result.requested) {
-								num.classList.add('requested');
-							}
-
+							const state = numState(result);
+							num.classList.add(state);
 							if (index === this.cfg.currentResultIndex) {
 								num.classList.add('active');
 							}
-
-							if (result.finish) {
-								num.classList.add('finish');
-							} else {
-								if (
-									result.requested &&
-									result.resolved &&
-									(result.error?.trim().length !== 0 || result.searchInfos.length === 0 || result.finish === false)
-								) {
-									num.classList.add('error');
-								}
+							const attempts = result.attempts ?? 0;
+							num.title = `第 ${index + 1} 题：${numStateTitle[state]}${
+								attempts > 1 ? `（已尝试 ${attempts} 次）` : ''
+							}`;
+							if (attempts > 1 && state !== 'finish') {
+								num.dataset.attempts = String(attempts);
 							}
 						};
 
@@ -1310,17 +1503,27 @@ export const CommonProject = Project.create({
 								// 渲染序号结果
 								const resultContainer = h('div', { className: 'work-result-container' });
 
-								/** 基础提示信息 */
-								const baseInfos = [
-									`已搜题: ${stats.requested}/${stats.total}`,
-									`已答题: ${stats.resolved}/${stats.total}`,
-									'⚪ 白色序号：等待处理中',
-									'🔵 蓝边序号：已完成搜索',
-									'🔵 蓝色序号：已搜索已答题',
-									'🔴 红色序号：搜索失败或没答案/不匹配等情况',
-									'',
-									'👉点击序号，查看搜索结果'
-								];
+								/** 进度概览：完成数 + 进度条 + 仅在非零时出现的重试/失败计数 */
+								const summary = h('div', { className: 'work-result-summary' }, [
+									h('div', { className: 'work-result-summary-row' }, [
+										h('span', { className: 'work-result-summary-main' }, [
+											h('strong', String(stats.finished)),
+											h('span', ` / ${stats.total} 已作答`)
+										]),
+										...(stats.retrying
+											? [h('span', { className: 'work-result-chip retrying' }, `进行中 ${stats.retrying}`)]
+											: []),
+										...(stats.failed
+											? [h('span', { className: 'work-result-chip error' }, `未答上 ${stats.failed}`)]
+											: [])
+									]),
+									h('div', { className: 'work-result-progress' }, [
+										h('span', {
+											className: 'work-result-progress-bar',
+											style: { width: `${stats.total ? (stats.finished / stats.total) * 100 : 0}%` }
+										})
+									])
+								]);
 
 								/** 渲染序号 */
 								const nums = results.map((result, index) => {
@@ -1344,23 +1547,11 @@ export const CommonProject = Project.create({
 									});
 								});
 
-								/** 问号图标：承载答题进度与序号解释提示，避免整区域 tooltip 阻挡序号点击 */
-								const helpIcon = $ui.tooltip(
-									h(
-										'span',
-										{
-											className: 'search-infos-help',
-											title: baseInfos.join('\n')
-										},
-										'?'
-									)
-								);
-
-								list.replaceChildren(helpIcon, ...nums);
+								list.replaceChildren(...nums);
 								// 初始显示指定序号的结果
 								resultContainer.replaceChildren(createResult(results[this.cfg.currentResultIndex]));
 
-								container.replaceChildren(list, resultContainer);
+								container.replaceChildren(summary, list, resultContainer);
 
 								/** 恢复高度 */
 								list.scrollTo({
@@ -1393,7 +1584,7 @@ export const CommonProject = Project.create({
 							} else {
 								container.replaceChildren(
 									h('div', { className: 'alert-info-wrapper' }, [
-										h('div', '暂无任何搜索结果~', (div) => {
+										h('div', '还没有答题记录。进入作业或考试页面后会自动开始答题。', (div) => {
 											div.style.marginTop = '12px';
 											div.className = 'result-info no-answer';
 										})
@@ -1420,7 +1611,8 @@ export const CommonProject = Project.create({
 
 						render(true);
 						// 结果数据变化是唯一的重渲染数据源（update/append/clearResults 均写此 key）
-						$store.addTabChangeListener(TAB_WORK_RESULTS_KEY, render);
+						// 注意不能直接传 render：监听器的第一个参数是新数据（真值），会被当成「首次渲染」把搜题中状态清掉
+						$store.addTabChangeListener(TAB_WORK_RESULTS_KEY, () => render(false));
 						// worker 工作状态变化时重渲染（控制"清空搜索结果"按钮显隐）
 						workerWorkingChangeListeners.add(() => render(false));
 
@@ -1445,7 +1637,8 @@ export const CommonProject = Project.create({
 				});
 				CommonProject.scripts.workResults.on('work-current-result-change', (cur) => {
 					if (cur.searching) {
-						if (working_msg) working_msg.innerHTML = loadingSpinSvg + ` 正在搜题 ${formatQuestionForMessage(cur.question)}`;
+						if (working_msg)
+							working_msg.innerHTML = loadingSpinSvg + ` 正在搜题 ${formatQuestionForMessage(cur.question)}`;
 					}
 				});
 			}
@@ -1454,7 +1647,7 @@ export const CommonProject = Project.create({
 			'work-current-result-change': (cur: SimplifyWorkResult) => void;
 		}>(),
 		onlineSearch: new Script({
-			name: '🌐 在线搜题',
+			name: '在线搜题',
 			matches: [['所有页面', /.*/]],
 			namespace: 'common.online-search',
 			configs: {
@@ -1500,8 +1693,10 @@ export const CommonProject = Project.create({
 				});
 
 				const search = async (value: string) => {
-					if (CommonProject.scripts.settings.cfg.answererWrappers.length === 0) {
-						$modal.alert({ content: '请先在 通用-全局设置 配置题库，才能进行在线搜题。' });
+					if (!hasUsableAnswerer(CommonProject.scripts.settings.cfg.answererWrappers).ok) {
+						$modal.alert({
+							content: '请先在 通用-全局设置 配置「AI 题库」或「题库配置」，才能进行在线搜题。'
+						});
 						return;
 					}
 
@@ -1513,7 +1708,12 @@ export const CommonProject = Project.create({
 							title: value,
 							enableImageOptimize: CommonProject.scripts.settings.cfg.imageOptimize
 						});
-						const infos = await defaultAnswerWrapperHandler(CommonProject.scripts.settings.cfg.answererWrappers, env);
+						// 与自动答题共用同一套来源组合（AI / 固定题库按「答题来源」设置）
+						const infos = await runAnswererPipeline({
+							wrappers: CommonProject.scripts.settings.cfg.answererWrappers,
+							env: env as any,
+							separators: CommonProject.scripts.settings.cfg.answerSeparators.split(',').map((s) => s.trim())
+						});
 						// 耗时计算
 						const resume = ((Date.now() - t) / 1000).toFixed(2);
 
@@ -1693,23 +1893,23 @@ const createGuide = () => {
 		});
 	};
 
-	const gotoHome = h('button', { className: 'base-style-button-secondary' }, '🏡官网教程');
+	const gotoHome = h('button', { className: 'base-style-button-secondary' }, '官网教程');
 	gotoHome.onclick = () => window.open('https://docs.ocsjs.com', '_blank');
 
-	const contactUs = h('button', { className: 'base-style-button-secondary' }, '🗨️交流群');
+	const contactUs = h('button', { className: 'base-style-button-secondary' }, '交流群');
 	contactUs.onclick = () => window.open('https://docs.ocsjs.com/docs/about#交流方式', '_blank');
 
-	const changeLog = h('button', { className: 'base-style-button-secondary' }, '📄更新日志');
+	const changeLog = h('button', { className: 'base-style-button-secondary' }, '更新日志');
 	changeLog.onclick = () => BackgroundProject.scripts.update.methods.showChangelog();
 
-	const closeGuide = h('button', { className: 'base-style-button-secondary' }, '📄如何关闭脚本？');
+	const closeGuide = h('button', { className: 'base-style-button-secondary' }, '如何关闭脚本？');
 	closeGuide.onclick = () =>
 		window.open('https://docs.ocsjs.com/docs/script#%E5%85%B3%E9%97%AD%E8%84%9A%E6%9C%AC%E6%95%99%E7%A8%8B', '_blank');
 
 	return h('div', { className: 'user-guide' }, [
 		h('div', [
 			h('div', { style: { marginBottom: '4px', fontWeight: 'bold' } }, [
-				'✨兼容的网课平台：',
+				'兼容的网课平台：',
 				h('span', { className: 'secondary', style: { fontWeight: 'normal' } }, '（未适配的平台将无法运行，请等待适配）')
 			]),
 
@@ -1726,7 +1926,7 @@ const createGuide = () => {
 			)
 		]),
 		h('div', { style: { margin: '12px 0px' } }, [
-			h('div', { style: { marginBottom: '8px', fontWeight: 'bold' } }, '🌐快捷访问：'),
+			h('div', { style: { marginBottom: '8px', fontWeight: 'bold' } }, '快捷访问：'),
 			gotoHome,
 			contactUs,
 			changeLog,
@@ -1737,42 +1937,49 @@ const createGuide = () => {
 
 /** 按题型区分"答案无法作答"的提示文案 */
 const typeMismatchTexts: Record<string, string> = {
-	single: '⚠️ 给出的答案和选项不匹配，可能是题库答案错误',
-	multiple: '⚠️ 给出的答案和选项不匹配，可能是题库答案错误',
-	judgement: '⚠️ 无法选择，可能是题库答案错误',
-	completion: '⚠️ 给出的答案无法填入，可能是题库答案错误或者格式错误'
+	single: '答案和选项对不上，可能是答案有误',
+	multiple: '答案和选项对不上，可能是答案有误',
+	judgement: '答案无法判断对错，可能是答案有误',
+	completion: '答案无法填入，可能是答案有误或格式不对'
 };
 
 function createSearchResultAlertElement(result: SimplifyWorkResult) {
 	let info: HTMLElement | null = null;
 	let err = result.error || result.searchInfos.find((i) => i.error)?.error;
-	if (result.requested === false && result.resolved === false) {
-		info = h('div', { className: 'result-info unresolved' }, '等待搜索中... 🔍');
+	const attempts = result.attempts ?? 0;
+	const attemptText = attempts > 1 ? `第 ${attempts} 次尝试` : '';
+
+	if (result.searching) {
+		info = h('div', { className: 'result-info unresolved' }, attemptText ? `搜题中，${attemptText}` : '搜题中');
+	} else if (result.retrying) {
+		info = h('div', { className: 'result-info retrying' }, [
+			`第 ${attempts} 次没答上，稍后自动重试`,
+			...(err ? [h('div', { className: 'result-info-detail' }, err)] : [])
+		]);
+	} else if (result.requested === false && result.resolved === false) {
+		info = h('div', { className: 'result-info unresolved' }, '等待搜题');
 	} else if (err) {
 		let href = '';
 		if (err?.includes('is not valid JSON')) {
-			err = '题库返回数据错误';
+			err = '题库返回的数据格式不对';
 			href = 'https://docs.ocsjs.com/docs/other/FQA#tk-data-error';
 		} else if (err?.includes('题库连接失败')) {
 			err = '题库连接失败';
 			href = 'https://docs.ocsjs.com/docs/other/FQA#tk-error';
 		}
-		if (href) {
-			info = h('div', { className: 'result-info error' }, [
-				'❌ ' + err,
-				h('a', { href, target: '_blank', style: { marginLeft: '3px' } }, '解决方法?')
-			]);
-		} else {
-			info = h('div', { className: 'result-info error' }, ['❌ ' + err]);
-		}
+		info = h('div', { className: 'result-info error' }, [
+			h('span', err),
+			...(attempts > 1 ? [h('span', { className: 'result-info-detail' }, `已尝试 ${attempts} 次`)] : []),
+			...(href ? [h('a', { href, target: '_blank', className: 'result-info-link' }, '查看解决方法')] : [])
+		]);
 	} else if (result.searchInfos.length === 0) {
-		info = h('div', { className: 'result-info no-answer' }, '❌ 题库没搜索到答案');
+		info = h('div', { className: 'result-info no-answer' }, '没有搜到答案');
 	} else {
 		const mismatchText = (result.type && typeMismatchTexts[result.type]) || typeMismatchTexts.single;
 		info = result.finish
 			? null
 			: result.resolved === false
-			? h('div', { className: 'result-info unresolved' }, '等待顺序答题中... ⏱️')
+			? h('div', { className: 'result-info unresolved' }, '已搜到，等待作答')
 			: h('div', { className: 'result-info warn' }, mismatchText);
 	}
 

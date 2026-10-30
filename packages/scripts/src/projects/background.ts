@@ -21,6 +21,7 @@ import { CommonProject } from './common';
 import { CXProject, definedProjects, ICourseProject, IcveMoocProject, YKTProject, ZHSProject, ZJYProject } from '..';
 import { RenderScript } from '../render';
 import { SearchInfosElement } from '../elements/search.infos';
+import { icons, IconName } from '../utils/icons';
 import { $render } from '../utils/render';
 
 const state = {
@@ -54,8 +55,11 @@ type RequestList = {
 
 /**
  * 题库缓存类型
+ *
+ * hash：题目缓存签名（题干 + 选项 + 题型 + 模型），用于避免「同题干不同选项」命中错误答案。
+ * 旧版本写入的缓存没有 hash，仍按 title 匹配以保持兼容。
  */
-type QuestionCache = { title: string; answer: string; from: string; homepage: string; ai?: boolean };
+type QuestionCache = { title: string; answer: string; from: string; homepage: string; ai?: boolean; hash?: string };
 
 /**
  * 监听网页开发者工具打开事件（仅触发一次，多种方式组合检测）。
@@ -98,7 +102,6 @@ function onDevtoolsOpen(callback: () => void) {
 		const heightDiff = window.outerHeight - window.innerHeight;
 		if (widthDiff > 160 || heightDiff > 160) {
 			trigger();
-			
 		}
 	}, 1000);
 }
@@ -109,7 +112,7 @@ export const BackgroundProject = Project.create({
 	domains: [],
 	scripts: {
 		elementRegister: new Script({
-			name: '🔗 元素注册',
+			name: '元素注册',
 			hideInPanel: true,
 			matches: [['所有页面', /.*/]],
 			onstart() {
@@ -118,7 +121,7 @@ export const BackgroundProject = Project.create({
 			}
 		}),
 		console: new Script({
-			name: '📄 日志输出',
+			name: '日志输出',
 			matches: [['所有', /.*/]],
 			namespace: 'render.console',
 			configs: {
@@ -245,7 +248,7 @@ export const BackgroundProject = Project.create({
 					addQuestionCache: async (...questionCacheItems: QuestionCache[]) => {
 						const questionCaches: QuestionCache[] = this.cfg.localQuestionCaches;
 						for (const item of questionCacheItems) {
-							// 去重
+							// 去重：题干 + 答案相同即视为同一条（签名也一致时无需重复写入）
 							if (questionCaches.find((c) => c.title === item.title && c.answer === item.answer) === undefined) {
 								questionCaches.unshift(item);
 							}
@@ -267,7 +270,10 @@ export const BackgroundProject = Project.create({
 													title: r.question,
 													answer: res[1],
 													from: i.name.replace(/【题库缓存】/g, ''),
-													homepage: i.homepage || ''
+													homepage: i.homepage || '',
+													// extra_data.ai 是 AI 作答的标记，缓存后仍要在结果面板显示「AI」标签
+													ai: !!(res[2] as any)?.ai,
+													hash: r.optionsHash
 												}))
 												.flat()
 										)
@@ -280,25 +286,30 @@ export const BackgroundProject = Project.create({
 					 * 将题库缓存作为题库并进行题目搜索
 					 * @param title 题目
 					 * @param whenSearchEmpty 当搜索结果为空，或者题库缓存功能被关闭时执行的函数
+					 * @param opts.optionsHash 题目缓存签名：传入时要求缓存条目签名一致（旧条目无签名时仍按 title 命中）
 					 */
 					searchAnswerInCaches: async (
 						title: string,
-						whenSearchEmpty: () => SearchInformation[] | Promise<SearchInformation[]>
+						whenSearchEmpty: () => SearchInformation[] | Promise<SearchInformation[]>,
+						opts: { optionsHash?: string; bypass?: boolean } = {}
 					): Promise<SearchInformation[]> => {
-						if (CommonProject.scripts.settings.cfg.enableQuestionCaches === false) {
+						// 重试时跳过缓存：缓存里的答案上一次已经没对上选项
+						if (opts.bypass || CommonProject.scripts.settings.cfg.enableQuestionCaches === false) {
 							return await whenSearchEmpty();
 						}
 
+						const optionsHash = opts.optionsHash;
 						let results: SearchInformation[] = [];
 						const caches = this.cfg.localQuestionCaches;
 						for (const cache of caches) {
-							if (cache.title.trim() === title.trim()) {
-								results.push({
-									name: cache.from,
-									homepage: cache.homepage,
-									results: [{ answer: cache.answer, question: cache.title, extra_data: { ai: cache.ai, cache: true } }]
-								});
-							}
+							if (cache.title.trim() !== title.trim()) continue;
+							// 新条目带签名：签名不一致说明是「同题干不同选项」的另一道题，跳过
+							if (cache.hash && optionsHash && cache.hash !== optionsHash) continue;
+							results.push({
+								name: cache.from,
+								homepage: cache.homepage,
+								results: [{ answer: cache.answer, question: cache.title, extra_data: { ai: cache.ai, cache: true } }]
+							});
 						}
 						if (results.length === 0) {
 							results = await whenSearchEmpty();
@@ -379,7 +390,7 @@ export const BackgroundProject = Project.create({
 			}
 		}),
 		appConfigSync: new Script({
-			name: '🔄️ 软件配置同步',
+			name: '软件配置同步',
 			namespace: 'background.app',
 			matches: [['所有页面', /./]],
 			// 如果是在OCS软件中则不显示此页面
@@ -562,7 +573,7 @@ export const BackgroundProject = Project.create({
 											panel.configsContainer.prepend(panel.lockWrapper);
 
 											panel.lockWrapper.title =
-												'🚫已同步OCS桌面版软件配置，如需修改请在桌面版软件的左侧栏设置-通用设置-OCS配置，中进行修改。\n\n或者前往脚本悬浮窗:后台-软件配置同步 关闭配置同步功能。\n\n可双击强制修改，并关闭同步配置';
+												'已同步OCS桌面版软件配置，如需修改请在桌面版软件的左侧栏设置-通用设置-OCS配置，中进行修改。\n\n或者前往脚本悬浮窗:后台-软件配置同步 关闭配置同步功能。\n\n可双击强制修改，并关闭同步配置';
 											panel.lockWrapper = $ui.tooltip(panel.lockWrapper);
 											panel.lockWrapper.addEventListener('dblclick', () => {
 												panel.configsContainer.classList.remove('lock');
@@ -598,17 +609,23 @@ export const BackgroundProject = Project.create({
 			}
 		}),
 		update: new Script({
-			name: '📥 更新模块',
+			name: '更新模块',
 			matches: [['所有页面', /.*/]],
 			namespace: 'background.update',
 			configs: {
 				notes: {
-					defaultValue: '脚本自动更新模块，如果有新的版本会自动通知。'
+					defaultValue:
+						'版本信息模块。本脚本为「AI 题库」本地改造版，版本号带 -ai 后缀，<b>不跟随上游更新</b>：' +
+						'开启更新通知后检测到的「新版本」是官方原版，覆盖安装会丢失 AI 题库功能，因此默认关闭。'
 				},
 				autoNotify: {
-					defaultValue: true,
+					defaultValue: false,
 					label: '开启更新通知',
-					attrs: { type: 'checkbox', title: '当有最新的版本时自动弹窗通知，默认开启' }
+					attrs: {
+						type: 'checkbox',
+						title:
+							'默认关闭。检测到的新版本来自官方原版（cdn.ocsjs.com），覆盖后会丢失本 fork 的 AI 题库改造，请勿开启。'
+					}
 				},
 				notToday: {
 					defaultValue: -1
@@ -660,7 +677,7 @@ export const BackgroundProject = Project.create({
 					return;
 				}
 
-				const changeLog = h('button', { className: 'base-style-button-secondary' }, '📄查看更新日志');
+				const changeLog = h('button', { className: 'base-style-button-secondary' }, '查看更新日志');
 				changeLog.onclick = () => this.methods.showChangelog();
 				const updatePage = this.startConfig?.updatePage || '';
 				panel.body.replaceChildren(
@@ -739,7 +756,7 @@ export const BackgroundProject = Project.create({
 			}
 		}),
 		dev: new Script({
-			name: '🛠️ 开发者调试',
+			name: '开发者调试',
 			namespace: 'background.dev',
 			matches: [['所有页面', /./]],
 			onstart() {
@@ -842,7 +859,7 @@ export const BackgroundProject = Project.create({
 			}
 		}),
 		requestList: new Script({
-			name: '📄 请求记录',
+			name: '请求记录',
 			matches: [['', /.*/]],
 			priority: 99,
 			configs: {
@@ -895,7 +912,7 @@ export const BackgroundProject = Project.create({
 									{
 										className: 'base-style-button-secondary',
 										style: { marginRight: '12px' },
-										innerText: '🗑️清空记录'
+										innerText: '清空记录'
 									},
 									(btn) => {
 										btn.onclick = () => {
@@ -904,7 +921,7 @@ export const BackgroundProject = Project.create({
 										};
 									}
 								),
-								h('button', { className: 'base-style-button', innerText: '🔍执行搜索' }, (btn) => {
+								h('button', { className: 'base-style-button', innerText: '执行搜索' }, (btn) => {
 									btn.onclick = () => {
 										if (
 											this.cfg.methodFilter === 'none' &&
@@ -1127,7 +1144,7 @@ export const BackgroundProject = Project.create({
 			}
 		}),
 		environmentDetect: new Script({
-			name: '🤖 环境检测',
+			name: '环境检测',
 			matches: [['所有页面', /.*/]],
 			hideInPanel: true,
 			oncomplete() {
@@ -1165,7 +1182,7 @@ export const BackgroundProject = Project.create({
 						if (document.visibilityState === 'hidden' && !messageElement) {
 							messageElement = $message.warn({
 								content:
-									'⚠️检测到浏览器最小化/切屏，脚本可能无法正常运行，请保持网课页面在前台！（如果您正在全屏游戏中可以忽略此警告）',
+									'检测到浏览器最小化/切屏，脚本可能无法正常运行，请保持网课页面在前台！（如果您正在全屏游戏中可以忽略此警告）',
 								duration: 0
 							});
 						}
@@ -1175,15 +1192,27 @@ export const BackgroundProject = Project.create({
 			}
 		}),
 		menus: new Script({
-			name: '📁 菜单管理',
+			name: '菜单管理',
 			hideInPanel: true,
 			matches: [['所有页面', /.*/]],
 			async oncomplete() {
-				// 注册快捷菜单
-				await $menu('🏠', { scriptPanelLink: CommonProject.scripts.guide });
-				await $menu('🔎', { scriptPanelLink: CommonProject.scripts.workResults });
-				await $menu('⚙️', { scriptPanelLink: CommonProject.scripts.settings });
-				await $menu('📄', { scriptPanelLink: BackgroundProject.scripts.console });
+				/** 快捷菜单：图标按钮 + 文字提示（easy-us 只接受文本标签，创建后替换为 SVG） */
+				const iconMenu = async (icon: IconName, label: string, link: Script) => {
+					const btn = await $menu(label, { scriptPanelLink: link });
+					if (btn) {
+						btn.innerHTML = icons[icon];
+						btn.setAttribute('aria-label', label);
+						btn.title = label;
+						btn.setAttribute('data-title', label);
+						btn.classList.add('icon-link');
+					}
+					return btn;
+				};
+				await iconMenu('home', '首页', CommonProject.scripts.guide);
+				await iconMenu('results', '答题结果', CommonProject.scripts.workResults);
+				await iconMenu('settings', '全局设置', CommonProject.scripts.settings);
+				await iconMenu('model', 'AI 题库', CommonProject.scripts.aiAnswerer);
+				await iconMenu('console', '日志', BackgroundProject.scripts.console);
 
 				const currentStudyScript = [
 					[CXProject.scripts.studyDispatcher, CXProject.scripts.study],
@@ -1222,7 +1251,7 @@ export const BackgroundProject = Project.create({
 
 				if (currentStudyScript) {
 					// 注册当前学习脚本的快捷菜单
-					await $menu('🖥️', { scriptPanelLink: currentStudyScript });
+					await iconMenu('study', '当前页面脚本', currentStudyScript);
 					// 置顶面板
 					BackgroundProject.scripts.render.methods.pin(currentStudyScript);
 				}

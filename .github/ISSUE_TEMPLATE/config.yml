@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 📖 官方文档
+  - name: 使用说明
+    url: https://github.com/RUOLINGDADA/ocsjs#readme
+    about: 安装、AI 题库配置、重试机制和常见问题
+  - name: 原版 OCS 文档
     url: https://docs.ocsjs.com
-    about: 查看快速入门和使用文档
+    about: 各平台的基础用法（原版文档，不含本仓库新增的功能）

@@ -1,0 +1,78 @@
+name: Release
+
+# 推送 v 开头的标签（如 v6.0.1）时：安装依赖 → 跑测试 → 构建 → 把脚本挂到 GitHub Release。
+# 已安装的脚本会从「最新 Release」检查更新，所以发布后用户会自动收到新版本。
+# 手动运行（Actions 页面的 Run workflow）只构建并上传产物，不发布。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          if ! [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "标签必须是 vX.Y.Z 格式（例如 v6.0.1），当前是 ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        env:
+          # 标签名即版本号；手动运行时使用 build-core.js 里的默认版本
+          RELEASE_VERSION: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocs-userscripts
+          path: |
+            dist/ocs.user.js
+            dist/ocs.common.user.js
+            dist/ocs.meta.js
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/ocs.user.js
+            dist/ocs.common.user.js
+            dist/ocs.meta.js
+          generate_release_notes: true
+          body: |
+            ## 安装
+
+            - [标准版 ocs.user.js](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ocs.user.js)：大多数人用这个
+            - [通用版 ocs.common.user.js](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/ocs.common.user.js)：AI 接口地址不在内置白名单里（自建网关、中转站）时用这个
+
+            点开链接后，脚本管理器（Tampermonkey / ScriptCat）会弹出安装页。已经装了官方版的，会显示为「更新」并直接替换。
+            旧的「OCS 网课助手 AI 版」不会被替换，请在脚本管理器里删除。

@@ -1,0 +1,1114 @@
+/**
+ * OCS 基础组件样式
+ *
+ * 由 easy-us 基础样式（node_modules/easy-us/assets/less/style.less）复制而来，
+ * 结构与功能性规则保持一致，视觉变量换成 OCS 自己的设计令牌（见 tokens.less）。
+ * 以后 easy-us 升级只需对比结构性改动，不必再跟随它的配色。
+ */
+@import './tokens.less';
+
+/** ===== 主题主色 ===== */
+/** 主色：墨绿（答题卡完成色），与平台常见的蓝色区分开 */
+@primary: @ocs-jade;
+/** 主色 hover 变浅 */
+@primary-hover: lighten(@primary, 10%);
+/** 主色浅色变体（禁用态等） */
+@primary-light: lighten(@primary, 25%);
+/** 激活态浅底 */
+@primary-soft: fade(@primary, 10%);
+/** 极浅底（提示卡片、hover 背景） */
+@primary-ghost: fade(@primary, 6%);
+/** 主色边框/竖条 */
+@primary-border: fade(@primary, 40%);
+/** focus 光环 */
+@primary-ring: fade(@primary, 32%);
+
+/** 默认字体：系统中文无衬线（原为等宽字体） */
+@base-font-family: @ocs-font;
+/** 输入框默认边距 */
+@form-control-padding: 3px 8px;
+@form-control-bg: #ffffff;
+
+ul,
+ol {
+	line-height: 26px;
+	padding-left: 22px;
+	margin: 0px;
+}
+
+a {
+	color: @primary;
+}
+
+hr {
+	border-style: solid;
+	border-color: #63636346;
+	border-width: 0px;
+	border-bottom: 1px solid #63636346;
+	margin-block-start: 1em;
+	margin-block-end: 1em;
+}
+
+.base-style-active-form-control {
+	border: 1px solid #ffffff00;
+	&:focus {
+		border: 1px solid @primary;
+		box-shadow: 0px 0px 4px @primary-ring;
+	}
+
+	&:focus:not([type='checkbox'], [type='radio']) {
+		border: 1px solid @primary;
+		box-shadow: 0px 0px 4px @primary-ring;
+		background-color: white !important;
+	}
+
+	&:hover {
+		background-color: #ebeef4;
+	}
+}
+
+.base-style-input {
+	outline: none;
+	border: 1px solid #ffffff00;
+	padding: @form-control-padding;
+	margin: 0px;
+	background-color: @form-control-bg;
+	border-radius: 8px;
+	color: black;
+
+	&::placeholder {
+		color: #bababa;
+	}
+}
+
+.base-style-switch {
+	appearance: none;
+	-moz-appearance: none;
+	-webkit-appearance: none;
+
+	width: fit-content;
+	min-width: 48px;
+	height: 20px;
+	border-radius: 100px;
+	display: flex;
+	align-items: center;
+	padding: 2px 4px;
+	transition: all 0.2s ease-in-out;
+	width: auto;
+	background: gainsboro;
+
+	&:checked {
+		background: @primary;
+	}
+	&:disabled {
+		background-color: #f7f7f78b;
+	}
+
+	&:checked::before {
+		transform: translate(24px, 0px);
+	}
+
+	&::before {
+		background-color: #fff;
+		border-radius: 9px;
+		box-shadow: 0 2px 4px #00230b33;
+		width: 14px;
+		height: 14px;
+		content: '';
+	}
+}
+
+.base-style-button {
+	appearance: none;
+	-moz-appearance: none;
+	-webkit-appearance: none;
+
+	border-radius: 4px;
+	background-color: @primary;
+	border: 1px solid @primary;
+	color: white;
+	cursor: pointer !important;
+	transition: all 0.2s ease;
+
+	&:active {
+		box-shadow: 0px 0px 8px fade(@primary, 65%);
+	}
+
+	& + & {
+		margin-left: 12px;
+	}
+
+	&:hover {
+		background-color: @primary-hover;
+		border-color: @primary-hover;
+	}
+
+	&.danger {
+		background-color: #f56c6c;
+		border-color: #f56c6c;
+		color: white;
+	}
+
+	&.danger:hover {
+		background-color: #f78989;
+		border-color: #f78989;
+	}
+
+	&:disabled {
+		background-color: @primary-light;
+		border-color: @primary-light;
+		color: white;
+		cursor: not-allowed !important;
+	}
+
+	&:disabled:active {
+		box-shadow: none;
+	}
+}
+
+.base-style-button-secondary {
+	.base-style-button();
+
+	color: #606266;
+	background-color: white;
+	border: 1px solid #dcdcdc;
+
+	&:hover {
+		color: @primary;
+		border-color: lighten(@primary, 30%);
+		background-color: @primary-ghost;
+	}
+}
+
+container-element.hidden {
+	display: none;
+}
+
+container-element.minimize {
+	min-width: unset;
+}
+
+container-element {
+	position: fixed;
+	top: 10%;
+	left: 10%;
+	z-index: 99999;
+	text-align: left;
+	min-width: 300px;
+	// 固定定位下 shrink-to-fit 宽度会受 right 边缘可用空间约束，
+	// 导致移到屏幕右边缘时标题栏文本被挤压，这里显式按内容宽度渲染，允许超出屏幕
+	width: max-content;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	color: #636363;
+	box-shadow: 0 0 24px -12px #3f3f3f;
+	border-radius: 12px;
+	letter-spacing: 0.5px;
+	border: 1px solid #c1c1c1;
+	background-color: #f5f5f5;
+}
+
+@base-height: 32px;
+@size: 18px;
+
+header-element {
+	display: flex;
+	align-items: center;
+	border-radius: 12px 12px 0px 0px;
+	user-select: none;
+	padding-bottom: 0px;
+
+	.extra-menu-bar {
+		width: 100%;
+		padding: 4px;
+		padding-bottom: 4px;
+		background-color: white;
+		border-top: 1px solid #e8e8e8;
+		/** 默认隐藏，一直到需要激活的时候再更改 */
+		display: none;
+
+		.script-panel-link {
+			.base-style-button-secondary();
+
+			padding-bottom: 2px;
+			margin-bottom: 0px;
+		}
+
+		.script-panel-link.active {
+			background-color: @primary-soft;
+			border-color: @primary;
+			color: @primary;
+		}
+
+		.script-panel-link + .script-panel-link {
+			margin-left: 4px;
+		}
+	}
+
+	.header-menu-bar {
+		padding-top: 4px;
+		border-top-left-radius: 12px;
+		border-top-right-radius: 12px;
+		background-color: #f5f7fa;
+		align-items: center;
+		gap: 0px;
+	}
+
+	.profile {
+		cursor: move;
+		margin-right: 4px;
+	}
+
+	.switch:hover {
+		background-color: #e4e9f0;
+	}
+
+	.close:hover {
+		background-color: #ff000038;
+	}
+
+	.switch,
+	.close {
+		cursor: pointer;
+	}
+
+	.dropdown {
+		line-height: 20px;
+
+		// 未激活 tab：扁平文本样式（daisyUI tabs-lift），仅 hover 时轻微反馈
+		.dropdown-trigger-element {
+			padding: 2px 12px;
+			border: none;
+			border-top: 1px solid #00000000;
+			border-radius: 8px 8px 0px 0px;
+			font-weight: 500;
+			color: #606266;
+			background-color: transparent;
+			cursor: pointer;
+			transition:
+				background-color 0.2s ease,
+				color 0.2s ease;
+
+			&:hover {
+				background-color: #ffffff80;
+				color: @primary;
+			}
+		}
+
+		&.active {
+			.dropdown-trigger-element {
+				// ===== daisyUI tabs-lift 变量 =====
+				--tab-border: 1px;
+				--tab-border-color: #e8ecf1;
+				--tab-bg: #ffffff;
+				--tab-radius-limit: 8px;
+				--tab-radius-grad:
+					#0000 calc(69% - var(--tab-border)), var(--tab-border-color) calc(69% - var(--tab-border) + 0.25px),
+					var(--tab-border-color) 69%, var(--tab-bg) calc(69% + 0.25px);
+				--radius-start: radial-gradient(circle at top left, var(--tab-radius-grad));
+				--radius-end: radial-gradient(circle at top right, var(--tab-radius-grad));
+
+				position: relative;
+				color: @primary;
+				font-weight: 600;
+				// 左右 padding 补偿侧边 border，保持文字位置与未激活态一致
+				padding: 2px 11px;
+				background-color: var(--tab-bg);
+				border: var(--tab-border) solid var(--tab-border-color);
+				border-bottom: none;
+				border-radius: var(--tab-radius-limit) var(--tab-radius-limit) 0 0;
+				// 正下方铺 1px 白色阴影带，盖住标题栏横线（等价 daisyUI 的 tab-content 负 margin）
+				box-shadow: 0 1px 0 var(--tab-bg);
+
+				// 底部左右反向圆角（daisyUI ::before 机制）：
+				// 环内透明露出标题栏底色，环外填 tab 底色并盖住侧边框下端与横线
+				&::before {
+					content: '';
+					z-index: 1;
+					position: absolute;
+					inset: auto calc(-1 * var(--tab-radius-limit)) -1px calc(-1 * var(--tab-radius-limit));
+					height: calc(var(--tab-radius-limit) + var(--tab-border));
+					transform: translate(0px, 1px);
+					pointer-events: none;
+					background-image: var(--radius-start), var(--radius-end), linear-gradient(var(--tab-bg), var(--tab-bg));
+					background-size:
+						var(--tab-radius-limit) var(--tab-radius-limit),
+						var(--tab-radius-limit) var(--tab-radius-limit),
+						100% var(--tab-border);
+					background-position:
+						top left,
+						top right,
+						bottom left;
+					background-repeat: no-repeat;
+				}
+			}
+		}
+	}
+
+	.switch {
+		border-radius: 8px;
+		line-height: 20px;
+		margin-left: auto;
+		transition: background-color 0.2s ease;
+	}
+
+	.switch,
+	.close,
+	.profile {
+		display: inline-flex;
+		align-items: center;
+		padding: 0px 8px;
+	}
+}
+
+.logo {
+	width: 18px;
+	height: 18px;
+	cursor: pointer;
+}
+
+.project-selector {
+	display: flex;
+	align-items: center;
+
+	select {
+		background: #ffffff00;
+		border-radius: 4px;
+		border: 1px solid #63636346;
+		padding: 4px;
+	}
+}
+.project-selector.expand-all {
+	display: none;
+}
+
+.body {
+	overflow: auto;
+	width: auto;
+	height: 100%;
+	overscroll-behavior: contain;
+}
+
+script-panel-element {
+	display: block;
+	background-color: white;
+	border-radius: 0px 0px 12px 12px;
+	padding: 0px 8px 12px 8px;
+	overflow: auto;
+
+	.script-panel-body {
+		padding: 0px 8px;
+	}
+}
+
+script-panel-element + script-panel-element {
+	margin-top: 12px;
+}
+
+.card + .card {
+	margin-top: 12px;
+}
+
+.card {
+	background-color: white;
+	border-radius: 10px;
+	padding: 0px 8px;
+}
+
+.notes {
+	background: @primary-ghost;
+	border-left: 4px solid @primary-border;
+	border-radius: 4px 10px 10px 4px;
+	width: -webkit-fill-available;
+	margin: 0px 8px;
+	line-height: 26px;
+	letter-spacing: 1px;
+
+	.notes-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		cursor: pointer;
+		user-select: none;
+		font-weight: bold;
+
+		.notes-title {
+			display: inline-flex;
+			align-items: center;
+			gap: 4px;
+		}
+
+		.notes-info-icon {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 14px;
+			height: 14px;
+			border-radius: 50%;
+			background-color: @primary;
+			color: white;
+			font-size: 10px;
+			font-weight: bold;
+			font-style: italic;
+			line-height: 1;
+			user-select: none;
+		}
+	}
+
+	.notes-collapse-icon {
+		font-size: 12px;
+		transition: transform 0.2s;
+	}
+
+	&.collapsed {
+		.notes-body {
+			display: none;
+		}
+
+		.notes-collapse-icon {
+			transform: rotate(-90deg);
+		}
+	}
+}
+
+.secondary {
+	font-size: 12px;
+	color: #8b8b8b;
+}
+
+.tooltip-container {
+	z-index: 99999999999999;
+	padding: 6px 10px;
+	color: white;
+	background: rgba(0, 0, 0);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	position: fixed;
+	white-space: normal;
+	width: fit-content;
+	max-width: 400px;
+	height: auto;
+	border-radius: 6px;
+	line-height: 18px;
+	touch-action: manipulation;
+	/** 展开/收起动画：透明度 + 位移，方向随放置位置翻转 */
+	visibility: hidden;
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		opacity 0.15s ease,
+		transform 0.15s ease,
+		visibility 0.15s;
+
+	&.tooltip-bottom {
+		transform: translateY(-4px);
+	}
+
+	&.tooltip-top {
+		transform: translateY(4px);
+	}
+
+	&.show {
+		visibility: visible;
+		opacity: 1;
+		transform: translateY(0);
+		pointer-events: auto;
+	}
+
+	/** 气泡尾巴：水平位置由 --tooltip-arrow-left 驱动，始终对准目标中心 */
+	&::before {
+		content: '';
+		position: absolute;
+		left: var(--tooltip-arrow-left, 10px);
+		width: 8px;
+		height: 8px;
+		background: inherit;
+		transform: rotate(45deg);
+	}
+
+	/** 气泡在目标下方，尾巴朝上 */
+	&.tooltip-bottom::before {
+		top: -4px;
+	}
+
+	/** 气泡在目标上方，尾巴朝下 */
+	&.tooltip-top::before {
+		bottom: -4px;
+	}
+}
+
+/** 移动端（粗指针）适配：限宽并加大内边距 */
+@media (pointer: coarse) {
+	.tooltip-container {
+		max-width: min(400px, 80vw);
+		padding: 8px 12px;
+	}
+}
+
+.configs-container {
+	&.lock {
+		filter: blur(1px);
+		user-select: none;
+		-webkit-user-select: none;
+		-moz-user-select: none;
+		-ms-user-select: none;
+	}
+	.lock-wrapper {
+		cursor: not-allowed !important;
+		border-radius: 4px;
+		position: absolute;
+		left: 0px;
+		z-index: 1;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.lock-message {
+		background-color: #ffffff7d;
+		border-radius: 4px;
+		box-shadow: 0px 0px 12px #6a6a6a98;
+		padding: 2px;
+	}
+}
+
+.configs {
+	display: table;
+	background: #e1e1e107;
+	width: -webkit-fill-available;
+
+	.configs-body {
+		display: table-row-group;
+
+		config-element + config-element {
+			label {
+				padding-top: 4px;
+			}
+			.config-wrapper {
+				padding-top: 4px;
+			}
+		}
+
+		config-element {
+			width: 100%;
+			display: table-row;
+			line-height: 26px;
+
+			label {
+				white-space: nowrap;
+				color: #4e5969;
+				display: table-cell;
+				padding-right: 12px;
+				text-align: left;
+				vertical-align: top;
+				margin-right: 12px;
+			}
+
+			.config-wrapper {
+				display: table-cell;
+				vertical-align: middle;
+
+				select {
+					outline: none;
+					border: none;
+					border: 1px solid #e4e4e4;
+					border-radius: 8px;
+					padding: @form-control-padding;
+
+					.base-style-active-form-control();
+				}
+
+				textarea {
+					padding: @form-control-padding;
+					outline: none;
+					border: none;
+					.base-style-active-form-control();
+				}
+
+				input:not([type='button']) {
+					.base-style-input();
+					.base-style-active-form-control();
+				}
+				input[type='range'] {
+					// 取消左右间隔，否则滚动条不能滚到头尾
+					padding: 0px;
+				}
+
+				input[type='button'] {
+					.base-style-button();
+					// 宽度根据文本自适应
+					width: auto;
+					padding: 4px 12px;
+				}
+
+				/** check box 的样式 */
+				input[type='checkbox'] {
+					.base-style-switch();
+				}
+
+				input:not([type='checkbox'], [type='radio'], [type='button']),
+				textarea,
+				select {
+					width: -webkit-fill-available;
+					font-size: inherit;
+				}
+
+				input[type='checkbox'],
+				input[type='radio'],
+				input[type='range'] {
+					accent-color: @primary;
+				}
+			}
+
+			.config-wrapper > *:not(.tooltip) {
+				background-color: @form-control-bg;
+				border-radius: 8px;
+				color: black;
+				float: right;
+			}
+
+			/** 前后插槽容器：仅作布局，抵消 > * 规则带来的底色与圆角 */
+			.config-wrapper > .config-provider-container {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				background-color: transparent;
+				border-radius: 0px;
+				padding: 0px;
+
+				.config-prefix,
+				.config-suffix {
+					display: inline-flex;
+					align-items: center;
+					white-space: nowrap;
+					line-height: 20px;
+					flex-shrink: 0;
+				}
+
+				/** 插槽中的按钮：去除下外边距保持垂直居中，禁止收缩 */
+				.base-style-button,
+				.base-style-button-secondary {
+					margin-bottom: 0px;
+					white-space: nowrap;
+					flex-shrink: 0;
+				}
+
+				/** 容器内的表单控件：恢复独立控件底色 */
+				> input:not([type='checkbox'], [type='radio'], [type='button']),
+				> select,
+				> textarea {
+					width: auto;
+					min-width: 60px;
+					background-color: @form-control-bg;
+				}
+			}
+			.config-wrapper > *:disabled {
+				cursor: not-allowed;
+				background-color: #f7f7f78b;
+			}
+		}
+	}
+}
+
+// 消息推送
+
+.message-container {
+	margin-bottom: 4px;
+	position: absolute;
+	bottom: 100%;
+	left: 50%;
+	width: 100%;
+	transform: translate(-50%, 0px);
+	min-width: 300px;
+	// 需高于标题栏激活 TAB 的 ::before（z-index:1），
+	// 否则面板贴顶时气泡会被 TAB 背景盖住
+	z-index: 2;
+
+	// 提示内容
+	message-element {
+		display: flex;
+		border-radius: 8px;
+		padding: 4px 12px;
+		margin-bottom: 4px;
+
+		.message-content-container {
+			margin-right: 8px;
+			flex: auto;
+		}
+
+		.message-text {
+			letter-spacing: 1px;
+			font-weight: bold;
+		}
+
+		// 关闭按钮
+		.message-closer {
+			width: 18px;
+			min-width: 18px;
+			cursor: pointer;
+			background-color: #ffffffb3;
+			color: #a1a1a1;
+			border-radius: 100%;
+			text-align: center;
+			height: 18px;
+			vertical-align: middle;
+			font-size: 12px;
+		}
+
+		&.error {
+			background-color: #ffe6e6;
+			color: #c70208;
+			border: 1px solid #ff6b6ded;
+		}
+
+		&.info {
+			// 使用 mix 生成不透明实色，避免 fade 半透明背景/边框透出页面内容
+			background-color: mix(@primary, #ffffff, 20%);
+			color: darken(@primary, 30%);
+			border: 1px solid mix(@primary, #ffffff, 40%);
+		}
+
+		&.success {
+			background-color: #e8ffe0;
+			color: #3e8d0d;
+			border: 1px solid #6fd91d;
+		}
+
+		&.warn {
+			background-color: #ffefc8;
+			color: #9b7400;
+			border: 1px solid #ffc107;
+		}
+	}
+}
+
+modal-element {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	background-color: white;
+	border-radius: 14px;
+	box-shadow: 0px 0px 24px -12px black;
+	border: 1px solid #929292;
+	height: fit-content;
+	transform: translate(-50%, -50%);
+	padding: 12px 18px 18px 18px;
+	font-family: @base-font-family;
+	z-index: 99999999999;
+	line-height: 24px;
+
+	.modal-profile {
+		zoom: 0.9;
+		color: #969696;
+		user-select: none;
+		margin-bottom: 4px;
+	}
+
+	.modal-title {
+		font-size: 18px;
+		font-weight: bold;
+		user-select: none;
+	}
+
+	.modal-body {
+		margin: 12px 0px;
+		overflow: auto;
+	}
+
+	.modal-footer {
+		display: flex;
+		white-space: nowrap;
+		justify-content: end;
+		align-items: end;
+
+		> * + * {
+			margin-left: 12px;
+		}
+	}
+
+	.modal-input {
+		.base-style-input();
+		.base-style-active-form-control();
+		width: -webkit-fill-available;
+	}
+
+	.modal-cancel-button {
+		.base-style-button();
+
+		color: gray;
+		background-color: white;
+		border: 1px solid #dcdcdc;
+	}
+	.modal-confirm-button {
+		.base-style-button();
+	}
+}
+
+modal-element.alert {
+	.modal-input,
+	.modal-cancel-button {
+		display: none;
+	}
+	.modal-confirm-button {
+		margin: 0;
+	}
+}
+
+modal-element.prompt {
+	.modal-input,
+	.modal-cancel-button,
+	.modal-confirm-button {
+		display: block;
+	}
+}
+
+modal-element.confirm {
+	.modal-input {
+		display: none;
+	}
+}
+
+.modal-wrapper {
+	width: 100%;
+	height: 100%;
+	z-index: 9999;
+	position: fixed;
+	top: 0px;
+	left: 0px;
+	z-index: 9999999;
+	background-color: rgba(0, 0, 0, 0.265);
+	color: #636363;
+	font: 14px @base-font-family;
+}
+
+.pointer {
+	cursor: pointer;
+}
+
+.separator {
+	display: flex;
+	align-items: center;
+	text-align: center;
+	padding: 4px 0px 8px 0px;
+
+	&::before,
+	&::after {
+		content: '';
+		flex: 1;
+		border-bottom: 1px solid #63636346;
+	}
+
+	&:not(:empty)::before {
+		margin-right: 0.25em;
+	}
+
+	&:not(:empty)::after {
+		margin-left: 0.25em;
+	}
+}
+
+container-element.minimize {
+	.body,
+	header-element .dropdown,
+	.footer {
+		display: none;
+	}
+}
+
+container-element.minimize header-element {
+	border-radius: 12px;
+	padding-bottom: 8px;
+	box-shadow: 0px 0px 24px -12px black;
+}
+
+.dropdown {
+	position: relative;
+	display: inline-block;
+
+	&.active {
+		.dropdown-trigger-element {
+			color: @primary;
+		}
+	}
+}
+
+.dropdown-trigger-element {
+	cursor: pointer;
+}
+
+.dropdown-content {
+	position: absolute;
+	background-color: #ffffff;
+	overflow: auto;
+	box-shadow:
+		0 6px 16px 0 #00000014,
+		0 3px 6px -4px #0000001f;
+	z-index: 1;
+	border: 1px solid #e8ecf1;
+	border-radius: 12px;
+	padding: 4px;
+	min-width: 120px;
+	/** 下拉展开/收起动画：透明度 + 下滑 + 轻微缩放，让用户感知这是一个下拉框 */
+	display: block;
+	visibility: hidden;
+	opacity: 0;
+	transform: translateY(-6px) scale(0.98);
+	transform-origin: top center;
+	pointer-events: none;
+	transition:
+		opacity 0.15s ease,
+		transform 0.15s ease,
+		visibility 0.15s;
+
+	&.show {
+		visibility: visible;
+		opacity: 1;
+		transform: translateY(0) scale(1);
+		pointer-events: auto;
+	}
+}
+
+.dropdown-content {
+	cursor: pointer;
+	z-index: 999;
+
+	.dropdown-option {
+		padding: 4px 12px;
+		white-space: nowrap;
+		border-radius: 8px;
+		transition:
+			background-color 0.2s ease,
+			color 0.2s ease;
+	}
+
+	.dropdown-option:hover {
+		background-color: #f5f5f5;
+	}
+
+	.dropdown-option.active {
+		background-color: @primary-soft;
+		color: @primary;
+		font-weight: 500;
+	}
+}
+
+.space {
+	display: inline-flex;
+}
+
+.config-details {
+	label {
+		padding-left: 12px;
+	}
+
+	animation: fade-in 0.5s;
+}
+
+message-element {
+	animation: show 0.5s;
+}
+
+script-panel-element > div,
+script-panel-link,
+container-element,
+modal-element {
+	animation: fade-in 0.3s;
+}
+
+@keyframes show {
+	0% {
+		transform: translateY(20px);
+		opacity: 0;
+	}
+	100% {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+@keyframes fade-in {
+	0% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
+}
+
+@keyframes fade-out {
+	0% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
+.checkbox-label {
+	display: inline-block !important;
+	position: relative;
+	cursor: pointer;
+	font-size: 16px;
+	color: #2c3e50;
+}
+
+/* 隐藏原始复选框 */
+.checkbox-input {
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+/* 自定义按钮样式 */
+.checkbox-label::after {
+	content: '';
+	display: inline-block;
+	border-radius: 50%;
+	transition: all 0.1s ease;
+	position: relative;
+	margin-left: 4px;
+	vertical-align: middle;
+}
+
+/* 折叠箭头：未展开向下，展开后向上（用边框画，不依赖 emoji 字体） */
+.checkbox-label::before {
+	content: '';
+	position: absolute;
+	top: 50%;
+	right: -14px;
+	width: 5px;
+	height: 5px;
+	border-right: 1.5px solid currentColor;
+	border-bottom: 1.5px solid currentColor;
+	transform: translateY(-75%) rotate(45deg);
+	transition: transform 0.15s ease;
+	z-index: 2;
+}
+
+.checked .checkbox-label::before {
+	transform: translateY(-25%) rotate(-135deg);
+}
+
+/** 气泡自适应：不可视气泡固定显示在屏幕正上方（从顶部向下滑出自身高度） */
+message-element.message-viewport-top {
+	position: fixed;
+	top: 12px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 99999;
+	max-width: 90vw;
+	animation: message-viewport-top-slide-down 0.25s ease;
+	// 堆叠重排（top 由 JS 累加计算）时的平滑过渡
+	transition: top 0.2s ease;
+}
+
+@keyframes message-viewport-top-slide-down {
+	from {
+		transform: translateX(-50%) translateY(-100%);
+		opacity: 0;
+	}
+	to {
+		transform: translateX(-50%) translateY(0);
+		opacity: 1;
+	}
+}

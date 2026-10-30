@@ -1,0 +1,1027 @@
+/**
+ * OCS 视觉层
+ *
+ * 最后导入，统一覆盖 base.less / custom.less 的视觉部分（结构与交互规则不动）。
+ * 原则：
+ * - 面板只有一层边框和一层阴影，内部用细线和留白分区，不再一层套一层卡片；
+ * - 强调色只给「完成」和主操作；其余状态（重试、失败）用各自的状态色，且只在出现时显示；
+ * - 唯一有表现力的地方是答题卡：涂满即完成，像纸质答题卡一样一眼看清进度。
+ */
+@import './tokens.less';
+
+/* ---------- 面板 ---------- */
+
+container-element {
+	// easy-us 会在行内写入等宽字体，这里用 !important 覆盖
+	font-family: @ocs-font !important;
+	font-size: @ocs-text-md;
+	line-height: 1.5;
+	letter-spacing: 0;
+	color: @ocs-ink-2;
+	background-color: @ocs-paper;
+	border: 1px solid @ocs-line-strong;
+	border-radius: @ocs-radius-panel;
+	box-shadow: @ocs-shadow-panel;
+	min-width: 320px;
+	overflow: visible;
+
+	* {
+		letter-spacing: inherit;
+	}
+
+	::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+	::-webkit-scrollbar-thumb {
+		background: @ocs-line-strong;
+		border-radius: 8px;
+		border: 2px solid @ocs-paper;
+	}
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	button,
+	input,
+	select,
+	textarea {
+		font-family: inherit;
+	}
+
+	:focus-visible {
+		outline: 2px solid @ocs-jade;
+		outline-offset: 1px;
+	}
+}
+
+.body {
+	border-radius: 0 0 @ocs-radius-panel @ocs-radius-panel;
+}
+
+hr {
+	border: 0;
+	border-bottom: 1px solid @ocs-line;
+	margin: 12px 0;
+}
+
+a {
+	color: @ocs-jade;
+	text-underline-offset: 2px;
+}
+
+/* ---------- 标题栏 ---------- */
+
+header-element {
+	border-radius: @ocs-radius-panel @ocs-radius-panel 0 0;
+
+	.header-menu-bar,
+	.extra-menu-bar {
+		box-sizing: border-box;
+	}
+
+	.header-menu-bar {
+		padding: 0 4px 0 10px;
+		min-height: 38px;
+		background-color: @ocs-mist;
+		border-bottom: 1px solid @ocs-line;
+		border-radius: @ocs-radius-panel @ocs-radius-panel 0 0;
+		gap: 2px;
+	}
+
+	.profile {
+		gap: 6px;
+		padding: 0 10px 0 0;
+		margin-right: 4px;
+		color: @ocs-ink;
+
+		svg {
+			width: 18px;
+			height: 18px;
+			fill: @ocs-ink;
+		}
+
+		.ocs-brand {
+			font-weight: 650;
+			font-size: @ocs-text-lg;
+			letter-spacing: 0.04em;
+		}
+
+		.ocs-version {
+			font-size: @ocs-text-xs;
+			color: @ocs-ink-3;
+			font-variant-numeric: tabular-nums;
+		}
+	}
+
+	// 平台切换：下划线标签，取代原来的立体标签页
+	.dropdown {
+		line-height: 20px;
+
+		.dropdown-trigger-element {
+			padding: 9px 10px !important;
+			border: 0 !important;
+			border-radius: 0 !important;
+			background: transparent !important;
+			box-shadow: none !important;
+			color: @ocs-ink-2;
+			font-weight: 500;
+
+			&::before {
+				display: none !important;
+			}
+
+			&:hover {
+				color: @ocs-ink;
+				background: transparent;
+			}
+		}
+
+		&.active .dropdown-trigger-element {
+			color: @ocs-ink !important;
+			font-weight: 600;
+			box-shadow: inset 0 -2px 0 @ocs-jade !important;
+		}
+	}
+
+	.switch {
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		justify-content: center;
+		border-radius: @ocs-radius;
+		color: @ocs-ink-3;
+
+		svg {
+			width: 16px;
+			height: 16px;
+			fill: currentColor;
+		}
+
+		&:hover {
+			background-color: @ocs-mist-2;
+			color: @ocs-ink;
+		}
+	}
+
+	// 快捷入口：图标按钮
+	.extra-menu-bar {
+		gap: 2px;
+		padding: 4px 8px;
+		background-color: @ocs-paper;
+		border-top: 0;
+		border-bottom: 1px solid @ocs-line;
+
+		.script-panel-link {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 30px;
+			height: 30px;
+			padding: 0;
+			margin: 0 !important;
+			border: 0;
+			border-radius: @ocs-radius;
+			background: transparent;
+			color: @ocs-ink-3;
+			box-shadow: none;
+			animation: none;
+			opacity: 1;
+
+			&:hover {
+				background-color: @ocs-mist-2;
+				color: @ocs-ink;
+				border: 0;
+			}
+
+			&:active {
+				box-shadow: none;
+			}
+
+			&.active {
+				background-color: @ocs-jade-wash;
+				color: @ocs-jade;
+				border: 0;
+			}
+		}
+	}
+}
+
+.dropdown-content {
+	border: 1px solid @ocs-line;
+	border-radius: @ocs-radius;
+	box-shadow: @ocs-shadow-panel;
+	padding: 4px;
+
+	.dropdown-option {
+		border-radius: @ocs-radius-sm;
+		padding: 5px 10px;
+		color: @ocs-ink-2;
+
+		&:hover {
+			background-color: @ocs-mist;
+			color: @ocs-ink;
+		}
+
+		&.active {
+			background-color: @ocs-jade-wash;
+			color: @ocs-jade;
+			font-weight: 500;
+		}
+	}
+}
+
+/* ---------- 脚本面板 ---------- */
+
+script-panel-element {
+	padding: 0 14px 14px;
+	background-color: @ocs-paper;
+	border-radius: 0 0 @ocs-radius-panel @ocs-radius-panel;
+
+	.script-panel-body {
+		padding: 0;
+	}
+}
+
+// 面板标题：左对齐的普通标题，取代两侧画线的居中分隔符
+.separator {
+	display: block;
+	text-align: left;
+	padding: 12px 0 8px;
+	font-size: @ocs-text-lg;
+	font-weight: 600;
+	color: @ocs-ink;
+
+	&::before,
+	&::after {
+		display: none;
+	}
+}
+
+.card {
+	border-radius: 0;
+	padding: 0;
+}
+
+.card + .card {
+	margin-top: 10px;
+}
+
+// 提示：安静的灰底说明，不再用蓝色竖条
+.notes {
+	margin: 0;
+	padding: 8px 10px;
+	width: auto;
+	background: @ocs-mist;
+	border: 0;
+	border-radius: @ocs-radius;
+	font-size: @ocs-text-sm;
+	line-height: 1.7;
+	letter-spacing: 0;
+	color: @ocs-ink-2;
+
+	.notes-header {
+		font-weight: 600;
+		font-size: @ocs-text-sm;
+		color: @ocs-ink-2;
+
+		.notes-info-icon {
+			display: none;
+		}
+	}
+
+	.notes-collapse-icon {
+		font-size: 9px;
+		color: @ocs-ink-3;
+	}
+
+	ul,
+	ol {
+		line-height: 1.7;
+		padding-left: 18px;
+		margin-top: 2px;
+	}
+
+	li::marker {
+		color: @ocs-ink-3;
+	}
+}
+
+.secondary,
+.text-secondary {
+	color: @ocs-ink-3;
+	font-size: @ocs-text-sm;
+}
+
+/* ---------- 按钮 ---------- */
+
+.base-style-button,
+.configs .configs-body config-element .config-wrapper input[type='button'],
+modal-element .modal-confirm-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-height: @ocs-control-h;
+	padding: 0 12px;
+	border-radius: @ocs-radius;
+	border: 1px solid @ocs-jade;
+	background-color: @ocs-jade;
+	color: #fff;
+	font-size: @ocs-text-md;
+	font-weight: 500;
+	line-height: 1;
+	box-shadow: none;
+	transition: background-color 0.15s @ocs-ease, border-color 0.15s @ocs-ease, color 0.15s @ocs-ease;
+
+	&:hover {
+		background-color: @ocs-jade-hover;
+		border-color: @ocs-jade-hover;
+		color: #fff;
+	}
+
+	&:active {
+		box-shadow: none;
+	}
+
+	&:disabled {
+		background-color: @ocs-mist-2;
+		border-color: @ocs-line;
+		color: @ocs-ink-3;
+	}
+}
+
+.base-style-button-secondary,
+modal-element .modal-cancel-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-height: @ocs-control-h;
+	padding: 0 12px;
+	border-radius: @ocs-radius;
+	border: 1px solid @ocs-line-strong;
+	background-color: @ocs-paper;
+	color: @ocs-ink;
+	font-size: @ocs-text-md;
+	font-weight: 500;
+	line-height: 1;
+	box-shadow: none;
+
+	&:hover {
+		background-color: @ocs-mist;
+		border-color: @ocs-line-strong;
+		color: @ocs-ink;
+	}
+
+	&:active {
+		box-shadow: none;
+	}
+
+	&:disabled {
+		background-color: @ocs-mist;
+		color: @ocs-ink-3;
+	}
+}
+
+.base-style-button + .base-style-button {
+	margin-left: 8px;
+}
+
+// 答题控制：暂停是次要操作，重新答题是破坏性操作，都不该比答题卡更抢眼
+.work-control-panel {
+	display: flex;
+	gap: 8px;
+	margin: 0 0 12px;
+
+	input[type='button'],
+	.base-style-button {
+		flex: 1;
+		margin: 0 !important;
+		background-color: @ocs-paper;
+		border-color: @ocs-line-strong;
+		color: @ocs-ink;
+		padding: 0 12px !important;
+
+		&:hover {
+			background-color: @ocs-mist;
+			border-color: @ocs-line-strong;
+			color: @ocs-ink;
+		}
+
+		&:disabled {
+			color: @ocs-ink-3;
+			background-color: @ocs-mist;
+		}
+	}
+
+	// 未开始时只有「开始答题」一个按钮，用主色
+	input[type='button']:only-child,
+	.base-style-button:only-child {
+		background-color: @ocs-jade;
+		border-color: @ocs-jade;
+		color: #fff;
+
+		&:hover {
+			background-color: @ocs-jade-hover;
+			border-color: @ocs-jade-hover;
+			color: #fff;
+		}
+	}
+}
+
+.copy,
+.question-title-extra-btn {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 4px;
+	padding: 1px 7px;
+	border: 1px solid @ocs-line;
+	border-radius: @ocs-radius-sm;
+	background-color: @ocs-paper;
+	box-shadow: none;
+	color: @ocs-ink-2;
+	font-size: @ocs-text-xs;
+	line-height: 18px;
+
+	&:hover {
+		background-color: @ocs-mist;
+		color: @ocs-ink;
+	}
+}
+
+/* ---------- 表单 ---------- */
+
+.configs {
+	background: transparent;
+
+	.configs-body config-element {
+		line-height: @ocs-control-h;
+
+		label {
+			color: @ocs-ink-2;
+			font-size: @ocs-text-md;
+		}
+
+		.config-wrapper {
+			> *:not(.tooltip) {
+				background-color: transparent;
+				border-radius: @ocs-radius;
+				color: @ocs-ink;
+			}
+
+			select,
+			textarea,
+			input:not([type='button'], [type='checkbox'], [type='radio'], [type='range']) {
+				min-height: @ocs-control-h;
+				padding: 3px 8px;
+				border: 1px solid @ocs-line-strong !important;
+				border-radius: @ocs-radius;
+				background-color: @ocs-paper !important;
+				color: @ocs-ink;
+				font-size: @ocs-text-md;
+				box-shadow: none;
+
+				&:hover {
+					border-color: @ocs-ink-3 !important;
+				}
+
+				&:focus {
+					border-color: @ocs-jade !important;
+					box-shadow: 0 0 0 3px @ocs-jade-wash;
+				}
+			}
+
+			input[type='checkbox'] {
+				min-width: 34px;
+				width: 34px;
+				height: 20px;
+				padding: 2px;
+				border: 0;
+				background: @ocs-line-strong;
+
+				&::before {
+					width: 16px;
+					height: 16px;
+					border-radius: 50%;
+					box-shadow: 0 1px 2px rgba(31, 35, 40, 0.2);
+				}
+
+				&:checked {
+					background: @ocs-jade;
+				}
+
+				&:checked::before {
+					transform: translate(14px, 0);
+				}
+			}
+		}
+	}
+}
+
+/* ---------- 消息 ---------- */
+
+.message-container message-element {
+	align-items: flex-start;
+	gap: 8px;
+	padding: 7px 10px;
+	margin-bottom: 6px;
+	border-radius: @ocs-radius;
+	box-shadow: 0 1px 2px rgba(31, 35, 40, 0.06), 0 4px 12px -4px rgba(31, 35, 40, 0.14);
+	font-size: @ocs-text-sm;
+	line-height: 1.6;
+
+	.message-text {
+		font-weight: 500;
+		letter-spacing: 0;
+	}
+
+	.message-closer {
+		background: transparent;
+		color: inherit;
+		opacity: 0.55;
+		font-size: 12px;
+		line-height: 18px;
+
+		&:hover {
+			opacity: 1;
+		}
+	}
+
+	svg {
+		vertical-align: -2px;
+	}
+
+	&.info {
+		background-color: @ocs-info-wash;
+		color: @ocs-info;
+		border: 1px solid @ocs-info-line;
+	}
+
+	&.success {
+		background-color: @ocs-jade-wash;
+		color: @ocs-jade;
+		border: 1px solid @ocs-jade-line;
+	}
+
+	&.warn {
+		background-color: @ocs-amber-wash;
+		color: @ocs-amber;
+		border: 1px solid @ocs-amber-line;
+	}
+
+	&.error {
+		background-color: @ocs-brick-wash;
+		color: @ocs-brick;
+		border: 1px solid @ocs-brick-line;
+	}
+
+	.base-style-button-secondary {
+		min-height: 22px;
+		padding: 0 8px;
+		font-size: @ocs-text-sm;
+		vertical-align: baseline;
+	}
+}
+
+/* ---------- 弹窗 ---------- */
+
+modal-element {
+	font-family: @ocs-font;
+	color: @ocs-ink-2;
+	border: 1px solid @ocs-line-strong;
+	border-radius: @ocs-radius-panel;
+	box-shadow: @ocs-shadow-panel;
+	padding: 16px 20px 18px;
+
+	.modal-profile {
+		zoom: 1;
+		font-size: @ocs-text-xs;
+		color: @ocs-ink-3;
+	}
+
+	.modal-title {
+		font-size: 16px;
+		font-weight: 600;
+		color: @ocs-ink;
+	}
+
+	.modal-footer > * + * {
+		margin-left: 8px;
+	}
+
+	.modal-input {
+		border: 1px solid @ocs-line-strong;
+		border-radius: @ocs-radius;
+		background-color: @ocs-paper;
+	}
+}
+
+.modal-wrapper {
+	background-color: rgba(31, 35, 40, 0.28);
+}
+
+.tooltip-container {
+	background: @ocs-ink;
+	border-radius: @ocs-radius;
+	padding: 6px 9px;
+	font-family: @ocs-font;
+	font-size: @ocs-text-sm;
+	line-height: 1.55;
+	box-shadow: 0 4px 12px rgba(31, 35, 40, 0.2);
+}
+
+/* ---------- 答题结果：概览 ---------- */
+
+.work-results {
+	width: 380px;
+	max-width: 100%;
+}
+
+.work-result-summary {
+	margin: 2px 0 10px;
+}
+
+.work-result-summary-row {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+
+.work-result-summary-main {
+	flex: 1;
+	color: @ocs-ink-3;
+	font-size: @ocs-text-sm;
+	font-variant-numeric: tabular-nums;
+
+	strong {
+		font-size: 20px;
+		font-weight: 650;
+		color: @ocs-ink;
+		margin-right: 2px;
+	}
+}
+
+.work-result-chip {
+	padding: 1px 7px;
+	border-radius: @ocs-radius-sm;
+	font-size: @ocs-text-xs;
+	font-variant-numeric: tabular-nums;
+
+	&.retrying {
+		color: @ocs-jade;
+		background-color: @ocs-jade-wash;
+	}
+
+	&.error {
+		color: @ocs-brick;
+		background-color: @ocs-brick-wash;
+	}
+}
+
+.work-result-progress {
+	height: 3px;
+	border-radius: 3px;
+	background-color: @ocs-mist-2;
+	overflow: hidden;
+}
+
+.work-result-progress-bar {
+	display: block;
+	height: 100%;
+	background-color: @ocs-jade;
+	border-radius: 3px;
+	transition: width 0.3s @ocs-ease;
+}
+
+/* ---------- 答题结果：答题卡 ---------- */
+
+.work-result-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+	gap: 4px;
+	max-height: 196px;
+	padding: 2px 2px 12px;
+	overflow: auto;
+}
+
+.search-infos-num {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: auto;
+	height: 26px;
+	margin: 0;
+	border: 1px solid @ocs-line-strong;
+	border-radius: @ocs-radius-sm;
+	background-color: @ocs-paper;
+	color: @ocs-ink-3;
+	font-family: @ocs-font-mono;
+	font-size: @ocs-text-sm;
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+	user-select: none;
+	animation: none;
+	box-shadow: none;
+	transition: background-color 0.2s @ocs-ease, border-color 0.2s @ocs-ease, color 0.2s @ocs-ease;
+
+	&:hover {
+		border-color: @ocs-ink-3;
+		color: @ocs-ink;
+	}
+
+	// 已搜到，等待作答
+	&.requested {
+		border-color: @ocs-ink-3;
+		color: @ocs-ink;
+	}
+
+	// 搜题中：底部一条细进度线来回扫动（只在正在处理的题上出现）
+	&.searching {
+		border-color: @ocs-jade-line;
+		color: @ocs-jade;
+		overflow: hidden;
+		animation: none;
+		box-shadow: none;
+
+		&::after {
+			content: '';
+			position: absolute;
+			left: 0;
+			bottom: 0;
+			height: 2px;
+			width: 40%;
+			background-color: @ocs-jade;
+			animation: ocs-cell-scan 1.1s @ocs-ease infinite alternate;
+		}
+	}
+
+	// 等待重试：琥珀色，右上角一个小点
+	&.retrying {
+		border-color: @ocs-amber-line;
+		background-color: @ocs-amber-wash;
+		color: @ocs-amber;
+
+		&::after {
+			content: '';
+			position: absolute;
+			top: 3px;
+			right: 3px;
+			width: 4px;
+			height: 4px;
+			border-radius: 50%;
+			background-color: @ocs-amber;
+		}
+	}
+
+	// 重试后仍没答上
+	&.error {
+		border-color: @ocs-brick-line;
+		background-color: @ocs-brick-wash;
+		color: @ocs-brick;
+	}
+
+	// 已作答：涂满
+	&.finish {
+		border-color: @ocs-jade;
+		background-color: @ocs-jade;
+		color: #fff;
+	}
+
+	// 当前查看的题：外圈描边，保留状态底色（原样式会把底色强制改成主色）
+	&.active {
+		background-color: @ocs-paper !important;
+		box-shadow: 0 0 0 1px @ocs-paper, 0 0 0 2.5px @ocs-ink;
+		color: @ocs-ink;
+		z-index: 1;
+	}
+	&.active.finish {
+		background-color: @ocs-jade !important;
+		color: #fff;
+	}
+	&.active.retrying {
+		background-color: @ocs-amber-wash !important;
+		color: @ocs-amber;
+	}
+	&.active.error {
+		background-color: @ocs-brick-wash !important;
+		color: @ocs-brick;
+	}
+}
+
+@keyframes ocs-cell-scan {
+	from {
+		transform: translateX(-10%);
+	}
+	to {
+		transform: translateX(160%);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.search-infos-num.searching::after {
+		animation: none;
+		width: 100%;
+	}
+	.work-result-progress-bar {
+		transition: none;
+	}
+}
+
+/* ---------- 答题结果：单题详情 ---------- */
+
+.alert-info-wrapper {
+	margin: 0 0 8px;
+
+	.result-info {
+		padding: 7px 10px;
+		text-align: left;
+		border-radius: @ocs-radius;
+		font-size: @ocs-text-sm;
+		line-height: 1.6;
+		border: 1px solid transparent;
+	}
+
+	.unresolved,
+	.no-answer {
+		color: @ocs-ink-2;
+		background-color: @ocs-mist;
+	}
+
+	.retrying,
+	.warn {
+		color: @ocs-amber;
+		background-color: @ocs-amber-wash;
+		border-color: @ocs-amber-line;
+	}
+
+	.error {
+		color: @ocs-brick;
+		background-color: @ocs-brick-wash;
+		border-color: @ocs-brick-line;
+	}
+
+	.result-info-detail {
+		display: block;
+		margin-top: 2px;
+		font-size: @ocs-text-xs;
+		opacity: 0.85;
+		word-break: break-all;
+	}
+
+	.result-info-link {
+		margin-left: 8px;
+		color: inherit;
+		text-decoration: underline;
+	}
+}
+
+.search-info-title {
+	margin-bottom: 8px;
+	padding: 10px 12px;
+	border: 1px solid @ocs-line;
+	border-radius: @ocs-radius;
+	color: @ocs-ink;
+	font-size: @ocs-text-md;
+	line-height: 1.65;
+}
+
+search-infos-element {
+	.search-result-question-type {
+		margin-right: 4px;
+		padding: 1px 7px;
+		border: 0;
+		border-radius: @ocs-radius-sm;
+		background-color: @ocs-mist-2;
+		color: @ocs-ink-2;
+		font-size: @ocs-text-xs;
+		line-height: 18px;
+	}
+
+	.search-result {
+		.question {
+			font-weight: 500;
+			color: @ocs-ink;
+		}
+
+		.answer {
+			color: @ocs-ink-3;
+			font-size: @ocs-text-sm;
+
+			code {
+				display: inline-block;
+				margin: 2px 4px 2px 0;
+				padding: 1px 7px;
+				border: 0;
+				border-radius: @ocs-radius-sm;
+				background-color: @ocs-mist-2;
+				color: @ocs-ink;
+				font-family: @ocs-font;
+				font-size: @ocs-text-md;
+				line-height: 20px;
+			}
+
+			code + code {
+				margin-left: 0;
+			}
+		}
+
+		.search-result-answer-tag {
+			padding: 1px 6px;
+			border-radius: @ocs-radius-sm;
+			font-size: @ocs-text-xs;
+			margin-right: 4px;
+
+			&.blue {
+				color: @ocs-jade;
+				background-color: @ocs-jade-wash;
+				border: 1px solid @ocs-jade-line;
+			}
+
+			&.gray {
+				color: @ocs-ink-2;
+				background-color: @ocs-mist;
+				border: 1px solid @ocs-line;
+			}
+		}
+	}
+
+	.error {
+		color: @ocs-brick;
+		padding-left: 0;
+		font-size: @ocs-text-sm;
+	}
+}
+
+.accordion-card {
+	border: 1px solid @ocs-line;
+	border-radius: @ocs-radius;
+	box-shadow: none;
+
+	&:hover {
+		border-color: @ocs-line-strong;
+		box-shadow: none;
+	}
+}
+
+.accordion-card-header {
+	a {
+		color: @ocs-ink;
+		font-weight: 500;
+		text-decoration: none;
+
+		&:hover {
+			color: @ocs-jade;
+		}
+	}
+}
+
+/* ---------- 其他面板 ---------- */
+
+.ai-card {
+	border-color: @ocs-line;
+	border-radius: @ocs-radius;
+
+	&:hover {
+		border-color: @ocs-line-strong;
+		box-shadow: none;
+	}
+
+	&.active {
+		border-color: @ocs-jade;
+		box-shadow: 0 0 0 1px @ocs-jade-wash;
+	}
+}
+
+.ai-card-head {
+	background-color: @ocs-mist;
+}
+
+.console {
+	background-color: @ocs-ink;
+	border-radius: @ocs-radius;
+	font-family: @ocs-font-mono;
+	font-size: @ocs-text-xs;
+}
+
+.edge-drop-zone {
+	.edge-drop-zone-tip {
+		color: @ocs-jade;
+	}
+
+	&.zone-left {
+		background: linear-gradient(to right, fade(@ocs-jade, 22%), transparent);
+		border-right: 2px solid fade(@ocs-jade, 60%);
+	}
+
+	&.zone-right {
+		background: linear-gradient(to left, fade(@ocs-jade, 22%), transparent);
+		border-left: 2px solid fade(@ocs-jade, 60%);
+	}
+}
+
+.aw-spin {
+	vertical-align: -2px;
+}

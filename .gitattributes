@@ -1,0 +1,9 @@
+# 仓库内统一以 LF 保存文本文件（Windows 下检出时由 Git 按本地设置转换）
+* text=auto
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary

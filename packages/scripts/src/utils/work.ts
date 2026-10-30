@@ -2,7 +2,6 @@ import {
 	SimplifyWorkResult,
 	WorkerEvents,
 	WorkResult,
-	defaultAnswerWrapperHandler,
 	AnswererWrapper,
 	SearchInformation,
 	WorkContext,
@@ -21,6 +20,8 @@ import {
 	ImageSuggestionResult,
 	isAnswererWrappersSupportImageOptimize
 } from './answerer-env';
+import { createQuestionHash } from './hash';
+import { hasUsableAnswerer, resetAiAnswererRuntime, runAnswererPipeline } from './ai/answerer';
 
 // 重新导出，保持对外 API 不变（common.ts / exploration.ts 等仍从本文件导入）
 export {
@@ -178,7 +179,7 @@ export function commonWork(options: {
 
 	/** 渲染面板内容（render 事件与 start() 共用，保证两处内容一致） */
 	const renderPanelBody = () => {
-		const gotoSettingsBtn = $ui.button('👉 前往设置题库配置', {
+		const gotoSettingsBtn = $ui.button('前往设置题库配置', {
 			className: 'base-style-button',
 			style: { flex: '1', padding: '4px' }
 		});
@@ -219,7 +220,7 @@ export function commonWork(options: {
 	if (iframeControl) {
 		// 子 iframe 操控模式：$message 经 cors 转发到顶层时无法执行交互回调（取消/倒计时结束），
 		// 不能使用交互式预检；但自动答题必须触发，简化为直接校验题库配置 + 延迟自动开始
-		if (workOptions.answererWrappers.length === 0) {
+		if (!hasUsableAnswerer(workOptions.answererWrappers).ok) {
 			state.checkFailed = true;
 			answerWrapperEmptyWarning(0);
 		} else {
@@ -257,6 +258,8 @@ export function commonWork(options: {
 		}
 		// 重新获取题库配置（防止题库变化事件触发后无法获取到最新题库配置）
 		workOptions = CommonProject.scripts.settings.methods.getWorkOptions();
+		// 新一轮答题：清空 AI 的去重/在途状态，避免跨场次复用旧请求
+		resetAiAnswererRuntime();
 		await options.beforeRunning?.();
 		state.running = true;
 		// 运行答题
@@ -302,7 +305,7 @@ export function commonWork(options: {
  */
 export function dynamicWorkTips(worker: CommonEventEmitter<WorkerEvents>) {
 	const msg = $message.warn({
-		content: '⚠️ 正在逐题自动答题，过程中请勿手动切换题目，防止答题与搜索结果错乱。',
+		content: '正在逐题自动答题，过程中请勿手动切换题目，防止答题与搜索结果错乱。',
 		duration: 0
 	});
 	worker.once('done', () => msg?.remove());
@@ -321,9 +324,9 @@ export function createWorkerControl(options: {
 }) {
 	let stopMessage: MessageElement | undefined;
 	const paused = options.paused ?? { value: false };
-	const startBtn = $ui.button('▶️开始答题');
-	const restartBtn = $ui.button('🔃重新答题');
-	const controlBtn = $ui.button(paused.value ? '▶️继续' : '⏸暂停');
+	const startBtn = $ui.button('开始答题');
+	const restartBtn = $ui.button('重新答题');
+	const controlBtn = $ui.button(paused.value ? '继续' : '暂停');
 
 	startBtn.onclick = () => {
 		startBtn.remove();
@@ -339,7 +342,7 @@ export function createWorkerControl(options: {
 		paused.value = !paused.value;
 		const worker = options.workerProvider();
 		worker?.emit?.(paused.value ? 'stop' : 'continuate');
-		controlBtn.value = paused.value ? '▶️继续' : '⏸️暂停';
+		controlBtn.value = paused.value ? '继续' : '暂停';
 		if (paused.value) {
 			stopMessage = $message.warn({ duration: 0, content: '暂停中...' });
 		} else {
@@ -428,10 +431,14 @@ export function simplifyWorkResult(
 		requested: wr.requested,
 		searching: wr.searching,
 		resolved: wr.resolved,
+		attempts: wr.attempts,
+		retrying: wr.retrying,
 		error: wr.error,
 		type: wr.ctx?.type,
 		question,
 		finish: wr.result?.finish,
+		// 题目缓存签名：写缓存时与读缓存时使用的必须是同一个值
+		optionsHash: wr.ctx?.questionHash,
 		searchInfos:
 			wr.ctx?.searchInfos.map((sr) => ({
 				error: sr.error,
@@ -476,9 +483,25 @@ export const answerWrapperEmptyWarning = cors.defineTopFunction((duration: numbe
 		}, 500);
 	};
 
+	// AI 配置不完整时直接跳到「AI 题库」面板（全局设置里的「点击配置」打开的是固定题库配置，找不到 AI 的字段）
+	const aiPanel = h('button', { className: 'base-style-button-secondary' }, 'AI 题库');
+	aiPanel.onclick = () => {
+		BackgroundProject.scripts.render.methods.pin(CommonProject.scripts.aiAnswerer);
+	};
+
+	const { reason } = hasUsableAnswerer(CommonProject.scripts.settings.cfg.answererWrappers);
+	const content =
+		reason === 'ai-incomplete'
+			? h('span', {}, [
+					'AI 题库配置不完整（缺少接口地址 / API Key / 模型名），无法自动答题，请切换到 ',
+					aiPanel,
+					' 页面补全配置。'
+			  ])
+			: h('span', {}, ['你还没设置题库，也无法自动答题：请在 ', setting, ' 中配置「AI 题库」或「题库配置」。']);
+
 	answererWrapperUnsetMessage?.remove();
 	answererWrapperUnsetMessage = $message.warn({
-		content: h('span', {}, ['你还没设置题库，无法自动答题，请切换到 ', setting, ' 页面进行配置。']),
+		content,
 		duration: duration
 	});
 });
@@ -523,64 +546,86 @@ export function createCommonAnswerer(options: {
 		}
 		const titleImages = titleResult.images;
 
-		return await BackgroundProject.scripts.data.methods.searchAnswerInCaches(title, async () => {
-			await $.sleep((options.period ?? 3) * 1000);
-			const optResult = normalize(
-				options.optionsTransform
-					? options.optionsTransform(elements, ctx)
-					: (ctx.elements.options ?? [])
-							.filter(Boolean)
-							.map((o: HTMLElement | undefined) => o!.innerText)
-							.join('\n')
-			);
-			const questionHasImages =
-				(titleImages?.length ?? 0) + (optResult.images?.length ?? 0) > 0 ||
-				QUESTION_IMAGE_REGEX.test(title) ||
-				QUESTION_IMAGE_REGEX.test(optResult.text);
-			// 题目含图片但未开启图片题优化：此前为静默降级（原始 URL 发出后大概率搜不到），显式提示用户开启
-			if (questionHasImages && !CommonProject.scripts.settings.cfg.imageOptimize && !imageOptimizeOffWarned) {
-				imageOptimizeOffWarned = true;
-				$message.warn({
-					content: '检测到题目包含图片，但未开启「图片题优化」（通用-全局设置-高级设置中开启），图片题将无法搜题。',
-					duration: 10
+		/**
+		 * 选项文本提前到缓存查询之前计算：
+		 * 题库缓存签名需要「题干 + 选项 + 题型」，否则同题干不同选项的题会命中错误缓存。
+		 * optionsTransform 只读 DOM（部分平台会顺带纠正 ctx.type），提前执行无副作用。
+		 */
+		const optResult = normalize(
+			options.optionsTransform
+				? options.optionsTransform(elements, ctx)
+				: (ctx.elements.options ?? [])
+						.filter(Boolean)
+						.map((o: HTMLElement | undefined) => o!.innerText)
+						.join('\n')
+		);
+		const questionHash = createQuestionHash(title, optResult.text, String(ctx.type ?? ''));
+		// 供 simplifyWorkResult 写缓存时带上同一签名（读/写必须同源，否则永远命中不到）
+		(ctx as any).questionHash = questionHash;
+
+		return await BackgroundProject.scripts.data.methods.searchAnswerInCaches(
+			title,
+			async () => {
+				await $.sleep((options.period ?? 3) * 1000);
+				const questionHasImages =
+					(titleImages?.length ?? 0) + (optResult.images?.length ?? 0) > 0 ||
+					QUESTION_IMAGE_REGEX.test(title) ||
+					QUESTION_IMAGE_REGEX.test(optResult.text);
+				// 题目含图片但未开启图片题优化：此前为静默降级（原始 URL 发出后大概率搜不到），显式提示用户开启
+				if (questionHasImages && !CommonProject.scripts.settings.cfg.imageOptimize && !imageOptimizeOffWarned) {
+					imageOptimizeOffWarned = true;
+					$message.warn({
+						content: '检测到题目包含图片，但未开启「图片题优化」（通用-全局设置-高级设置中开启），图片题将无法搜题。',
+						duration: 10
+					});
+				}
+				const { env, imageUrls } = await buildAnswererEnv({
+					type: ctx.type,
+					title,
+					options: optResult.text,
+					titleImages,
+					optionsImages: optResult.images,
+					enableImageOptimize: CommonProject.scripts.settings.cfg.imageOptimize
 				});
-			}
-			const { env, imageUrls } = await buildAnswererEnv({
-				type: ctx.type,
-				title,
-				options: optResult.text,
-				titleImages,
-				optionsImages: optResult.images,
-				enableImageOptimize: CommonProject.scripts.settings.cfg.imageOptimize
-			});
-			// 已开启优化但全部图片转换失败（CORS/防盗链极端情况）：此前静默回退普通题，显式提示
-			if (
-				questionHasImages &&
-				CommonProject.scripts.settings.cfg.imageOptimize &&
-				imageUrls.length === 0 &&
-				!imageConvertFailWarned
-			) {
-				imageConvertFailWarned = true;
-				$message.warn({
-					content: '题目图片下载或转换失败（可能跨域受限），本题将按普通题目搜索，图片题可能无法匹配。',
-					duration: 10
+				// 已开启优化但全部图片转换失败（CORS/防盗链极端情况）：此前静默回退普通题，显式提示
+				if (
+					questionHasImages &&
+					CommonProject.scripts.settings.cfg.imageOptimize &&
+					imageUrls.length === 0 &&
+					!imageConvertFailWarned
+				) {
+					imageConvertFailWarned = true;
+					$message.warn({
+						content: '题目图片下载或转换失败（可能跨域受限），本题将按普通题目搜索，图片题可能无法匹配。',
+						duration: 10
+					});
+				}
+				// 答题来源：AI 题库 + 固定题库按「答题来源」设置组合（AI 关闭时行为与改造前完全一致）
+				// 填空题把空数告诉 AI，用于校验模型给出的分段数量（数量不符直接判该题失败，不瞎填）
+				if (ctx.type === 'completion') {
+					(env as any).blankCount = (ctx.elements.options ?? []).length;
+				}
+				const searchInfos = await runAnswererPipeline({
+					wrappers: options.answererWrappers ?? [],
+					env: env as any,
+					separators: ctx.answerSeparators
 				});
-			}
-			const searchInfos = await defaultAnswerWrapperHandler(options.answererWrappers, env);
-			// 将 AI 答案中的 [图片N] 占位符还原为对应图片 URL，使选项匹配可以命中图片选项。
-			// imageUrls 与实际上传的 env.images 严格同序（createImageSuggestion 单一数据源，含转换失败过滤）。
-			// 覆盖服务端未还原的场景：标题图占位符 / 选项行数不对齐 / 第三方题库。
-			if (imageUrls.length) {
-				for (const info of searchInfos) {
-					for (const res of info.results) {
-						if (res.answer && res.answer.includes('[图片')) {
-							res.answer = res.answer.replace(/\[图片(\d+)\]/g, (m, n) => imageUrls[Number(n) - 1] ?? m);
+				// 将 AI 答案中的 [图片N] 占位符还原为对应图片 URL，使选项匹配可以命中图片选项。
+				// imageUrls 与实际上传的 env.images 严格同序（createImageSuggestion 单一数据源，含转换失败过滤）。
+				// 覆盖服务端未还原的场景：标题图占位符 / 选项行数不对齐 / 第三方题库。
+				if (imageUrls.length) {
+					for (const info of searchInfos) {
+						for (const res of info.results) {
+							if (res.answer && res.answer.includes('[图片')) {
+								res.answer = res.answer.replace(/\[图片(\d+)\]/g, (m, n) => imageUrls[Number(n) - 1] ?? m);
+							}
 						}
 					}
 				}
-			}
-			return searchInfos;
-		});
+				return searchInfos;
+			},
+			{ optionsHash: questionHash, bypass: (ctx.attempt ?? 1) > 1 }
+		);
 	};
 }
 
@@ -601,7 +646,7 @@ function workPreCheckMessage(
 ) {
 	const { onrun, onNoAnswererWrappers, onclose, ...opts } = options;
 
-	if (opts.answererWrappers.length === 0) {
+	if (!hasUsableAnswerer(opts.answererWrappers).ok) {
 		onNoAnswererWrappers?.(opts);
 		return answerWrapperEmptyWarning(0);
 	} else {

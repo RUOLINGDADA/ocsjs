@@ -68,7 +68,7 @@ export const ZJYProject = Project.create({
 	domains: ['icve.com.cn', 'zjy2.icve.com.cn', 'zyk.icve.com.cn'],
 	scripts: {
 		guide: new Script({
-			name: '🖥️ 使用提示',
+			name: '使用提示',
 			matches: [
 				['学习页面', 'zjy2.icve.com.cn/study'],
 				['资源库', 'zyk.icve.com.cn/icve-study/']
@@ -162,7 +162,7 @@ export const ZJYProject = Project.create({
 				['在线课堂学习页面', 'zjy2.icve.com.cn/studentFast/courseware'],
 				['资源库学习页面', 'zyk.icve.com.cn/icve-study/coursePreview/courseware']
 			],
-			name: '✍️ 课程学习',
+			name: '课程学习',
 			namespace: 'zjy.study.main',
 			configs: {
 				notes: {
@@ -327,7 +327,7 @@ export const ZJYProject = Project.create({
 		}),
 		work: new Script({
 			matches: work_pages,
-			name: '✍️ 作业考试脚本',
+			name: '作业考试脚本',
 			namespace: 'zjy.work.main',
 			configs: {
 				notes: {

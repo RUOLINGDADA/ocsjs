@@ -204,7 +204,7 @@ export function confirmRiskyAnswerWrappers(aws: AnswererWrapper[]): Promise<bool
 		$modal.confirm({
 			width: 640,
 			maskCloseable: false,
-			title: '⚠️ 检测到题库配置中包含可疑代码',
+			title: '检测到题库配置中包含可疑代码',
 			content: h('div', [
 				h('div', { style: { marginBottom: '8px' } }, [
 					'题库配置中的解析器（handler）会在答题时以你的登录身份执行。以下题库包含高风险代码特征，可能被用于窃取账号信息、篡改页面或执行其他恶意操作：'

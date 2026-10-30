@@ -1,4 +1,6 @@
 import { SearchInformation } from '../answer-wrapper/interface';
+import type { RetryPolicy } from './engine/async';
+import type { ReadinessOptions } from './engine/readiness';
 
 export type ElementResolver<R> = (root: HTMLElement | Document) => R;
 export type RawElements = Record<
@@ -37,6 +39,14 @@ export interface WorkContext<E> {
 	type: QuestionTypes;
 	/** 答案分隔符 */
 	answerSeparators?: string[];
+	/**
+	 * 题目缓存签名（题干 + 选项 + 题型）。
+	 * 由答题器（scripts 的 createCommonAnswerer）写入，随 {@link SimplifyWorkResult.optionsHash}
+	 * 落到本地题库缓存，避免「同题干不同选项」命中错误缓存。
+	 */
+	questionHash?: string;
+	/** 当前是第几次尝试（从 1 开始），重试时答题器可据此跳过本地缓存 */
+	attempt?: number;
 }
 
 /** 答案题目处理器结果 */
@@ -56,6 +66,10 @@ export interface WorkResult<E extends RawElements> {
 	result?: ResolverResult;
 	error?: string;
 	ctx?: WorkContext<E>;
+	/** 已尝试次数（含收尾补答） */
+	attempts?: number;
+	/** 上一次尝试失败，正在等待重试 */
+	retrying?: boolean;
 }
 
 /**
@@ -78,6 +92,10 @@ export interface SimplifyWorkResult {
 	searching?: boolean;
 	/** 正在等待 答题 线程处理 */
 	resolved: boolean;
+	/** 已尝试次数 */
+	attempts?: number;
+	/** 正在等待重试 */
+	retrying?: boolean;
 	/** 查题信息 */
 	searchInfos: {
 		/** 题目名 */
@@ -89,6 +107,11 @@ export interface SimplifyWorkResult {
 		/** 搜索结果 [题目，答案，额外数据] */
 		results: [string, string, object][];
 	}[];
+	/**
+	 * 题目缓存签名（见 {@link WorkContext.questionHash}）。
+	 * 写入题库缓存时一并保存，命中时要求签名一致，避免同题干不同选项串答案。
+	 */
+	optionsHash?: string;
 }
 
 /** 答案题目处理器 */
@@ -238,6 +261,19 @@ export interface WorkOptions<E extends RawElements> {
 	 * 但脚本沙盒未重置、答题程序仍在运行）时，自动触发 close 关闭答题并弹出警告。
 	 */
 	rootObserver?: RootObserverOptions;
+	/**
+	 * 重试策略（不传则使用 {@link WorkerEngineConfig.retry}）。
+	 * 搜题报错、超时、没有答案、答案匹配不上选项，都会按策略重试；
+	 * 全部题目跑完后，再对仍未完成的题目补答 sweepRounds 轮。
+	 */
+	retry?: Partial<RetryPolicy>;
+	/** 单次尝试（搜题 + 作答）的超时（毫秒），不传则按全局配置计算 */
+	attemptTimeoutMs?: number;
+	/**
+	 * 读题前的页面就绪等待：文档加载完成、没有忙碌登记（如字体解密中）、自定义条件成立。
+	 * 传 false 关闭。
+	 */
+	readiness?: false | ReadinessOptions;
 	/** 当元素被搜索到 */
 	onElementSearched?: (elements: SearchedElements<E, HTMLElement[]>, root: HTMLElement) => void | Promise<void>;
 	/**

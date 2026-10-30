@@ -1,4 +1,6 @@
 # customize
+.DS_Store
+Thumbs.db
  
 
 **/*.zip

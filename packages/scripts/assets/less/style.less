@@ -1,4 +1,9 @@
-/** easy-us 基础样式（通过 node_modules 软链引入，相对路径保证 Easy LESS 免配置直接编译） */
-@import '../../../../node_modules/easy-us/assets/less/style.less';
-/** OCS 自定义样式 */
+/**
+ * 样式入口
+ * base.less   基础组件样式（由 easy-us 复制，配色换成 OCS 设计令牌）
+ * custom.less OCS 各功能模块样式
+ * theme.less  视觉层：统一字体、控件、面板与答题卡，最后导入以覆盖前两者
+ */
+@import './base.less';
 @import './custom.less';
+@import './theme.less';

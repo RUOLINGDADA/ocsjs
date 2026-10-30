@@ -10,7 +10,8 @@
 	],
 	"scripts": {
 		"dev": "gulp -f ./scripts/dev-core.js & npm run changelog:simplify",
-		"build": "gulp -f ./scripts/build-core.js",
+		"build": "npm run build:utils && gulp -f ./scripts/build-core.js",
+		"build:utils": "tsc -p packages/utils",
 		"tsc": "pnpm lint && gulp -f ./scripts/tsc.js",
 		"lint": "pnpm format && eslint  ./packages --ext .ts,.tsx,.js,.jsx --fix",
 		"format": "prettier -c ./.prettierrc.json  **/*.ts  **/*.js  **/*.css  --write",
@@ -18,7 +19,10 @@
 		"pub:minor": "npm version minor && pnpm build:core && npm publish",
 		"pub:major": "npm version major && pnpm build:core && npm publish",
 		"changelog:simplify": "gulp -f ./scripts/simplify_changelog.js",
-		"test": "tsx tests/resolver.test.ts",
+		"test": "npm run test:resolver && npm run test:ai && npm run test:engine",
+		"test:resolver": "tsx tests/resolver.test.ts",
+		"test:ai": "tsx tests/ai-answerer.test.ts",
+		"test:engine": "tsx --import ./tests/setup-browser-env.ts tests/engine.test.ts",
 		"test:eus": "pnpm -C A:/VSCode/code/eus build && pnpm -C packages/core link A:/VSCode/code/eus && pnpm -C packages/scripts link A:/VSCode/code/eus && npm run build",
 		"test:eus:reset": "pnpm install -w && cd packages/scripts && pnpm install",
 		"test:answerer": "tsx --import ./tests/setup-browser-env.ts tests/answerer.test.ts",
@@ -51,7 +55,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/ocsjs/ocsjs.git"
+		"url": "git+https://github.com/RUOLINGDADA/ocsjs.git"
 	},
 	"keywords": [
 		"ocs",
@@ -66,9 +70,9 @@
 	"author": "enncy",
 	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/ocsjs/ocsjs/issues"
+		"url": "https://github.com/RUOLINGDADA/ocsjs/issues"
 	},
-	"homepage": "https://github.com/ocsjs/ocsjs#readme",
+	"homepage": "https://github.com/RUOLINGDADA/ocsjs#readme",
 	"dependencies": {
 		"@microsoft/tsdoc": "^0.14.2"
 	},
